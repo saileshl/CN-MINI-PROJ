@@ -2,41 +2,49 @@
 
 :root {
   /* ==========================================================
-     Minimalist Ink Wash Gallery Palette (shadcn-inspired)
-     Charcoal Black, Cool Gray, Soft Ivory & Slate Blue
+     Refined Ink Wash Minimalist Theme with Vibrant Functional Accents
+     Charcoal Black (#121316), Cool Gray (#CBCBCB), Soft Ivory (#FFFFE3),
+     Slate Blue (#6D8196), Emerald Green (#10B981), Crimson Red (#EF4444)
      ========================================================== */
   --bg-deep: #121316;
   --bg-primary: #15161A;
   --bg-secondary: #1A1B20;
   --bg-card: #18191E;
-  --bg-card-hover: #1E2026;
+  --bg-card-hover: #1F2128;
   --bg-inset: #131418;
   --bg-glass: rgba(24, 25, 30, 0.85);
 
   /* Borders & Dividers */
-  --border-subtle: rgba(203, 203, 203, 0.12);
-  --border-strong: rgba(203, 203, 203, 0.22);
-  --border-card: rgba(203, 203, 203, 0.14);
+  --border-subtle: rgba(203, 203, 203, 0.10);
+  --border-strong: rgba(203, 203, 203, 0.20);
+  --border-card: rgba(203, 203, 203, 0.12);
   --border-focus: #6D8196;
 
   /* Typography */
   --text-primary: #FFFFE3;      /* Soft Ivory / Pale Cream */
   --text-secondary: #CBCBCB;    /* Light Cool Gray */
   --text-muted: #8E929A;        /* Medium Charcoal Gray */
-  --text-inverse: #121316;      /* Charcoal Black for buttons */
+  --text-inverse: #121316;      /* Charcoal Black */
 
-  /* Curated Minimal Accents */
+  /* Curated Palette & Functional Accents */
   --accent-slate: #6D8196;      /* Slate Blue */
   --accent-slate-hover: #8296AB;
   --accent-cream: #FFFFE3;      /* Soft Ivory */
   --accent-charcoal: #4A4A4A;   /* Dark Charcoal */
-  --accent-sage: #8EA89D;       /* Muted Sage */
-  --accent-rose: #C96B6B;       /* Muted Rose / Danger */
+  --accent-cyan: #00F0FF;       /* Electric Technical Cyan */
+  --accent-green: #10B981;      /* Vibrant Emerald Green */
+  --accent-green-hover: #059669;
+  --accent-red: #EF4444;        /* Vibrant Crimson Red */
+  --accent-red-hover: #DC2626;
+  --accent-indigo: #6366F1;     /* Rich Technical Indigo */
+  --accent-indigo-hover: #4F46E5;
+  --accent-amber: #F59E0B;      /* Warning Amber */
 
   /* Subtle Minimal Gradients */
   --gradient-hero: linear-gradient(180deg, #FFFFE3 0%, #CBCBCB 100%);
-  --gradient-slate: linear-gradient(135deg, #6D8196 0%, #4A4A4A 100%);
-  --gradient-card: linear-gradient(180deg, rgba(255, 255, 227, 0.02) 0%, transparent 100%);
+  --gradient-green: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  --gradient-red: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  --gradient-indigo: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
 
   /* Refined Geometry (shadcn style: 6px/8px clean radii) */
   --radius-xs: 4px;
@@ -48,7 +56,9 @@
   /* Subtle Gallery Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
-  --shadow-popup: 0 8px 30px rgba(0, 0, 0, 0.4);
+  --shadow-green: 0 0 16px rgba(16, 185, 129, 0.3);
+  --shadow-red: 0 0 16px rgba(239, 68, 68, 0.3);
+  --shadow-indigo: 0 0 16px rgba(99, 102, 241, 0.25);
 
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -94,7 +104,7 @@ html, body {
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -233,7 +243,7 @@ html, body {
   display: block;
 }
 
-/* ========== Buttons (shadcn style) ========== */
+/* ========== Buttons (shadcn style with Vibrant Semantic Colors) ========== */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -252,12 +262,25 @@ html, body {
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
 }
 
-/* Primary: Soft Ivory with Dark Charcoal Text (Maximum Gallery Contrast) */
+/* Start Button: Vibrant Emerald Green */
+.btn-start {
+  background: var(--accent-green);
+  color: #FFFFFF;
+  border-color: var(--accent-green);
+  box-shadow: var(--shadow-green);
+}
+
+.btn-start:hover {
+  background: var(--accent-green-hover);
+  border-color: var(--accent-green-hover);
+}
+
+/* Primary: Soft Ivory with Dark Charcoal Text */
 .btn-primary {
   background: var(--accent-cream);
   color: var(--text-inverse);
@@ -267,6 +290,19 @@ html, body {
 .btn-primary:hover {
   background: #EFEFD6;
   border-color: #EFEFD6;
+}
+
+/* Experiment Button: Rich Technical Indigo */
+.btn-indigo {
+  background: var(--accent-indigo);
+  color: #FFFFFF;
+  border-color: var(--accent-indigo);
+  box-shadow: var(--shadow-indigo);
+}
+
+.btn-indigo:hover {
+  background: var(--accent-indigo-hover);
+  border-color: var(--accent-indigo-hover);
 }
 
 .btn-secondary {
@@ -302,24 +338,27 @@ html, body {
   border-color: var(--border-strong);
 }
 
+/* Stop Button: Vibrant Crimson Red */
 .btn-danger {
-  background: rgba(201, 107, 107, 0.12);
-  color: #EFA6A6;
-  border-color: rgba(201, 107, 107, 0.28);
+  background: var(--accent-red);
+  color: #FFFFFF;
+  border-color: var(--accent-red);
+  box-shadow: var(--shadow-red);
 }
 
 .btn-danger:hover {
-  background: rgba(201, 107, 107, 0.22);
+  background: var(--accent-red-hover);
+  border-color: var(--accent-red-hover);
 }
 
 .btn-success {
-  background: rgba(142, 168, 157, 0.15);
-  color: #C2E0D4;
-  border-color: rgba(142, 168, 157, 0.35);
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .btn-success:hover {
-  background: rgba(142, 168, 157, 0.25);
+  background: rgba(16, 185, 129, 0.25);
 }
 
 /* ========== Badges & Status Indicators ========== */
@@ -336,49 +375,51 @@ html, body {
   color: var(--text-secondary);
 }
 
+/* Connected / Online: Glowing Emerald Green */
 .badge-success {
-  background: rgba(142, 168, 157, 0.1);
-  color: #D1EBE1;
-  border-color: rgba(142, 168, 157, 0.3);
+  background: rgba(16, 185, 129, 0.12);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .badge-warning {
-  background: rgba(255, 255, 227, 0.08);
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 227, 0.2);
+  background: rgba(245, 158, 11, 0.12);
+  color: #FBBF24;
+  border-color: rgba(245, 158, 11, 0.28);
 }
 
 .badge-info {
   background: rgba(109, 129, 150, 0.15);
-  color: #CCD8E5;
+  color: #93C5FD;
   border-color: rgba(109, 129, 150, 0.35);
 }
 
 .badge-danger {
-  background: rgba(201, 107, 107, 0.12);
-  color: #EFA6A6;
-  border-color: rgba(201, 107, 107, 0.25);
+  background: rgba(239, 68, 68, 0.12);
+  color: #FCA5A5;
+  border-color: rgba(239, 68, 68, 0.28);
 }
 
 .status-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--text-muted);
 }
 
 .status-dot.connected {
-  background: #8EA89D;
-  box-shadow: 0 0 6px rgba(142, 168, 157, 0.6);
+  background: #10B981;
+  box-shadow: 0 0 8px #10B981;
 }
 
 .status-dot.connecting {
-  background: var(--accent-slate);
-  box-shadow: 0 0 6px rgba(109, 129, 150, 0.6);
+  background: #60A5FA;
+  box-shadow: 0 0 8px #60A5FA;
 }
 
 .status-dot.disconnected {
-  background: var(--accent-rose);
+  background: #EF4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
 }
 
 /* ========== Sliders ========== */
@@ -398,7 +439,7 @@ html, body {
 
 .slider-group label span {
   font-family: var(--font-mono);
-  color: var(--text-primary);
+  color: var(--accent-cyan);
   font-weight: 600;
 }
 
@@ -419,13 +460,14 @@ input[type='range']::-webkit-slider-thumb {
   height: 14px;
   border-radius: 50%;
   background: var(--accent-cream);
-  border: 2px solid var(--bg-deep);
+  border: 2px solid var(--accent-slate);
   cursor: pointer;
   transition: transform var(--transition-fast);
 }
 
 input[type='range']::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+  transform: scale(1.2);
+  background: #FFFFFF;
 }
 
 /* ========== Progress Bar ========== */
@@ -439,7 +481,7 @@ input[type='range']::-webkit-slider-thumb:hover {
 
 .progress-bar-fill {
   height: 100%;
-  background: var(--accent-slate);
+  background: var(--accent-cyan);
   transition: width 0.15s ease-out;
 }
 

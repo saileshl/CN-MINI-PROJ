@@ -6,13 +6,40 @@ interface RealtimeChartProps {
   title: string;
   unit: string;
   data: number[];
-  colorTheme?: 'slate' | 'cream' | 'sage' | 'cyan' | 'emerald';
+  colorTheme?: 'cyan' | 'emerald' | 'slate' | 'cream' | 'indigo';
   icon?: string;
   maxPoints?: number;
   height?: number;
 }
 
 const THEMES = {
+  cyan: {
+    primary: '#00F0FF',
+    secondary: '#38BDF8',
+    glow: 'rgba(0, 240, 255, 0.35)',
+    fill: 'rgba(0, 240, 255, 0.12)',
+    badgeBg: 'rgba(0, 240, 255, 0.12)',
+    badgeBorder: 'rgba(0, 240, 255, 0.3)',
+    text: '#00F0FF',
+  },
+  emerald: {
+    primary: '#10B981',
+    secondary: '#34D399',
+    glow: 'rgba(16, 185, 129, 0.35)',
+    fill: 'rgba(16, 185, 129, 0.12)',
+    badgeBg: 'rgba(16, 185, 129, 0.12)',
+    badgeBorder: 'rgba(16, 185, 129, 0.3)',
+    text: '#34D399',
+  },
+  indigo: {
+    primary: '#818CF8',
+    secondary: '#A78BFA',
+    glow: 'rgba(129, 140, 248, 0.35)',
+    fill: 'rgba(129, 140, 248, 0.12)',
+    badgeBg: 'rgba(129, 140, 248, 0.12)',
+    badgeBorder: 'rgba(129, 140, 248, 0.3)',
+    text: '#A5B4FC',
+  },
   slate: {
     primary: '#6D8196',
     secondary: '#8FA3B8',
@@ -31,40 +58,13 @@ const THEMES = {
     badgeBorder: 'rgba(255, 255, 227, 0.2)',
     text: '#FFFFE3',
   },
-  sage: {
-    primary: '#8EA89D',
-    secondary: '#6D8196',
-    glow: 'rgba(142, 168, 157, 0.3)',
-    fill: 'rgba(142, 168, 157, 0.12)',
-    badgeBg: 'rgba(142, 168, 157, 0.12)',
-    badgeBorder: 'rgba(142, 168, 157, 0.25)',
-    text: '#FFFFE3',
-  },
-  cyan: {
-    primary: '#6D8196',
-    secondary: '#8FA3B8',
-    glow: 'rgba(109, 129, 150, 0.3)',
-    fill: 'rgba(109, 129, 150, 0.12)',
-    badgeBg: 'rgba(109, 129, 150, 0.12)',
-    badgeBorder: 'rgba(109, 129, 150, 0.25)',
-    text: '#FFFFE3',
-  },
-  emerald: {
-    primary: '#8EA89D',
-    secondary: '#6D8196',
-    glow: 'rgba(142, 168, 157, 0.3)',
-    fill: 'rgba(142, 168, 157, 0.12)',
-    badgeBg: 'rgba(142, 168, 157, 0.12)',
-    badgeBorder: 'rgba(142, 168, 157, 0.25)',
-    text: '#FFFFE3',
-  },
 };
 
 export default function RealtimeChart({
   title,
   unit,
   data,
-  colorTheme = 'slate',
+  colorTheme = 'cyan',
   icon = '📊',
   maxPoints = 120,
   height = 220,
@@ -82,7 +82,7 @@ export default function RealtimeChart({
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
 
-  const theme = THEMES[colorTheme] || THEMES.slate;
+  const theme = THEMES[colorTheme] || THEMES.cyan;
 
   // Real-time statistical metrics
   const stats = useMemo(() => {
@@ -239,10 +239,12 @@ export default function RealtimeChart({
         ctx.fillStyle = areaGrad;
         ctx.fill();
 
-        // 2. Refined stroke curve
+        // 2. Glowing stroke curve
         ctx.save();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = theme.glow;
         ctx.strokeStyle = theme.primary;
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.2;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
 
@@ -257,19 +259,19 @@ export default function RealtimeChart({
         ctx.stroke();
         ctx.restore();
 
-        // 3. Live head particle
+        // 3. Live head particle with pulsing wave
         const lastPt = points[points.length - 1];
         const pulse = Math.sin(timeOffset * 3) * 2;
 
         ctx.beginPath();
         ctx.strokeStyle = theme.primary;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.2;
         ctx.globalAlpha = Math.max(0, 1 - (pulse + 2) / 4);
         ctx.arc(lastPt.x, lastPt.y, 5 + Math.max(0, pulse + 2), 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
 
-        ctx.fillStyle = '#FFFFE3';
+        ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
         ctx.arc(lastPt.x, lastPt.y, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -352,7 +354,7 @@ export default function RealtimeChart({
           </div>
         </div>
 
-        {/* Live Counters Badges (shadcn style) */}
+        {/* Live Counters Badges */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
           {stats.current !== null ? (
             <>
@@ -427,7 +429,7 @@ export default function RealtimeChart({
             <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
               #{hoverIndex + 1}
             </span>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#FFFFE3' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: theme.text }}>
               {dataRef.current.slice(-maxPoints)[hoverIndex]?.toFixed(2)} {unit}
             </span>
           </div>

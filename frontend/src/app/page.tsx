@@ -232,7 +232,7 @@ export default function DashboardPage() {
     <div className="section animate-in">
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+        <h1 style={{ fontSize: '2.25rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
           Network Jitter Dashboard
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 600, margin: '0 auto' }}>
@@ -243,7 +243,7 @@ export default function DashboardPage() {
         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
           {isDemo ? (
             <div className="badge badge-warning">
-              Demo Mode Active (Simulated)
+              🎮 Demo Mode Active (Simulated)
             </div>
           ) : (
             <>
@@ -257,44 +257,63 @@ export default function DashboardPage() {
               </div>
             </>
           )}
-          {mitigationEnabled && <div className="badge badge-success">Jitter Buffer Active</div>}
+          {mitigationEnabled && <div className="badge badge-success">🛡️ Jitter Buffer Active</div>}
         </div>
       </div>
 
-      {/* Stats Metrics Cards */}
+      {/* Stats Metrics Cards with Vivid High-Contrast Indicators */}
       <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
         <div className="stat-card">
           <span className="stat-label">Average RTT</span>
-          <span className="stat-value">{metrics.avg_rtt !== undefined ? metrics.avg_rtt.toFixed(1) : '—'}</span>
+          <span className="stat-value" style={{ color: '#FFFFE3' }}>
+            {metrics.avg_rtt !== undefined ? metrics.avg_rtt.toFixed(1) : '—'}
+          </span>
           <span className="stat-unit">milliseconds</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">RTT Variation (Jitter)</span>
-          <span className="stat-value" style={{ color: 'var(--accent-slate)' }}>{metrics.avg_rtt_variation !== undefined ? metrics.avg_rtt_variation.toFixed(2) : '—'}</span>
+          <span className="stat-value" style={{ color: 'var(--accent-cyan)' }}>
+            {metrics.avg_rtt_variation !== undefined ? metrics.avg_rtt_variation.toFixed(2) : '—'}
+          </span>
           <span className="stat-unit">ms variance</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Packet Loss</span>
-          <span className="stat-value" style={{ color: metrics.packet_loss_percent && metrics.packet_loss_percent > 5 ? 'var(--accent-rose)' : 'inherit' }}>
+          <span
+            className="stat-value"
+            style={{
+              color: metrics.packet_loss_percent !== undefined
+                ? metrics.packet_loss_percent > 0
+                  ? 'var(--accent-red)'
+                  : 'var(--accent-green)'
+                : 'inherit'
+            }}
+          >
             {metrics.packet_loss_percent !== undefined ? metrics.packet_loss_percent.toFixed(1) : '—'}
           </span>
           <span className="stat-unit">percentage</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">P95 Latency</span>
-          <span className="stat-value">{metrics.p95_rtt !== undefined ? metrics.p95_rtt.toFixed(1) : '—'}</span>
+          <span className="stat-value" style={{ color: '#A78BFA' }}>
+            {metrics.p95_rtt !== undefined ? metrics.p95_rtt.toFixed(1) : '—'}
+          </span>
           <span className="stat-unit">ms threshold</span>
         </div>
         {mitigationEnabled && metrics.buffer_stats && (
           <>
-            <div className="stat-card" style={{ borderColor: 'rgba(142, 168, 157, 0.3)' }}>
+            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.35)' }}>
               <span className="stat-label">Buffered Jitter</span>
-              <span className="stat-value" style={{ color: '#8EA89D' }}>{metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}</span>
+              <span className="stat-value" style={{ color: 'var(--accent-green)' }}>
+                {metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}
+              </span>
               <span className="stat-unit">ms (mitigated)</span>
             </div>
-            <div className="stat-card" style={{ borderColor: 'rgba(142, 168, 157, 0.3)' }}>
+            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.35)' }}>
               <span className="stat-label">Buffer Depth</span>
-              <span className="stat-value">{metrics.buffer_stats.target_depth_ms?.toFixed(0) ?? '—'}</span>
+              <span className="stat-value" style={{ color: '#A78BFA' }}>
+                {metrics.buffer_stats.target_depth_ms?.toFixed(0) ?? '—'}
+              </span>
               <span className="stat-unit">ms queue</span>
             </div>
           </>
@@ -306,7 +325,7 @@ export default function DashboardPage() {
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             <span>Streaming UDP Packets...</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cream)' }}>{Math.round(progress * 100)}%</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>{Math.round(progress * 100)}%</span>
           </div>
           <div className="progress-bar-container">
             <div className="progress-bar-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -320,7 +339,7 @@ export default function DashboardPage() {
           title="Round-Trip Time (RTT)"
           unit="ms"
           data={rttHistory}
-          colorTheme="slate"
+          colorTheme="cyan"
           icon="📊"
           height={220}
         />
@@ -328,7 +347,7 @@ export default function DashboardPage() {
           title="RTT Variation (Jitter)"
           unit="ms"
           data={variationHistory}
-          colorTheme="cream"
+          colorTheme="emerald"
           icon="📈"
           height={220}
         />
@@ -339,45 +358,45 @@ export default function DashboardPage() {
         {/* Test Controls */}
         <div className="glass-card" style={{ padding: '1.5rem' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
-            Execution Controls
+            ⚡ Execution Controls
           </h3>
 
           {/* Prompt banner when agent is connected and ready */}
           {isLive && agentConnected && !testRunning && (
-            <div style={{ padding: '0.65rem 0.85rem', background: 'rgba(109, 129, 150, 0.1)', border: '1px solid rgba(109, 129, 150, 0.25)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '0.9rem' }}>⚡</span>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 500 }}>
-                Agent connected. Click <strong>Start Test</strong> to benchmark 200 packets.
+            <div style={{ padding: '0.65rem 0.85rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem' }}>🟢</span>
+              <div style={{ fontSize: '0.8rem', color: '#34D399', fontWeight: 600 }}>
+                Agent connected! Click <strong>Start Test</strong> to benchmark 200 packets.
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1rem' }}>
             <button
-              className="btn btn-primary"
-              style={{ flex: 1 }}
+              className="btn btn-start"
+              style={{ flex: 1.2 }}
               onClick={handleStartTest}
               disabled={testRunning || (!isDemo && !agentConnected)}
             >
-              Start Test
+              ▶ Start Test
             </button>
             <button
               className="btn btn-danger"
-              style={{ flex: 0.6 }}
+              style={{ flex: 0.8 }}
               onClick={handleStopTest}
               disabled={!testRunning}
             >
-              Stop
+              ⏹ Stop
             </button>
           </div>
 
           <button
-            className="btn btn-secondary"
+            className="btn btn-indigo"
             style={{ width: '100%', marginBottom: '1rem' }}
             onClick={handleStartExperiment}
             disabled={testRunning || (!isDemo && !agentConnected)}
           >
-            Run Paired A/B Experiment
+            🔬 Run Paired A/B Experiment
           </button>
 
           {/* Mitigation Toggle */}
@@ -391,7 +410,7 @@ export default function DashboardPage() {
               style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
               onClick={handleToggleMitigation}
             >
-              {mitigationEnabled ? 'Active' : 'Disabled'}
+              {mitigationEnabled ? 'Active (ON)' : 'Disabled (OFF)'}
             </button>
           </div>
         </div>
@@ -399,7 +418,7 @@ export default function DashboardPage() {
         {/* Network Impairment Engine */}
         <div className="glass-card" style={{ padding: '1.5rem' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
-            Synthetic Impairment Engine
+            🌊 Synthetic Impairment Engine
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
