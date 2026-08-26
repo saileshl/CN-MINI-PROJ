@@ -5,7 +5,7 @@ import { useSession } from '@/hooks/useSession';
 import { useWebSocket, WSMessage } from '@/hooks/useWebSocket';
 import { useExperiment } from '@/hooks/useExperiment';
 import { saveTestResult, saveExperiment } from '@/lib/storage';
-import { streamDemoTest, generateDemoExperiment, DemoPacket, DemoMetrics } from '@/lib/demo';
+import { streamDemoTest, generateDemoExperiment } from '@/lib/demo';
 import Link from 'next/link';
 
 interface Metrics {
@@ -36,8 +36,11 @@ export default function DashboardPage() {
   const experimentRef = useRef(experiment);
   useEffect(() => { experimentRef.current = experiment; }, [experiment]);
 
-  // State
-  const mode = backendOnline === false ? 'demo' : backendOnline === true ? 'live' : 'detecting';
+  // Operational mode: only demo when backend is confirmed offline
+  const isLive = backendOnline === true;
+  const isDemo = backendOnline === false;
+  const isDetecting = backendOnline === null;
+
   const [testRunning, setTestRunning] = useState(false);
   const [mitigationEnabled, setMitigationEnabled] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -51,11 +54,11 @@ export default function DashboardPage() {
   const [randomJitter, setRandomJitter] = useState(40);
   const [packetLoss, setPacketLoss] = useState(5);
 
-  // Chart refs
+  // Canvas refs
   const rttCanvasRef = useRef<HTMLCanvasElement>(null);
   const varCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Subscribe to live WebSocket messages from the single SessionProvider
+  // Subscribe to live WebSocket messages
   useEffect(() => {
     const unsubscribe = subscribe((msg: WSMessage) => {
       switch (msg.type) {
@@ -107,18 +110,13 @@ export default function DashboardPage() {
     return unsubscribe;
   }, [subscribe]);
 
-  // Draw charts
-  useEffect(() => { drawChart(rttCanvasRef.current, rttHistory, '#6366f1', '#22d3ee', 'RTT (ms)'); }, [rttHistory]);
-  useEffect(() => { drawChart(varCanvasRef.current, variationHistory, '#10b981', '#f59e0b', 'Variation (ms)'); }, [variationHistory]);
+  // Render Charts with high-DPI
+  useEffect(() => { drawSleekChart(rttCanvasRef.current, rttHistory, '#00f0ff', '#6366f1', 'RTT (ms)'); }, [rttHistory]);
+  useEffect(() => { drawSleekChart(varCanvasRef.current, variationHistory, '#10b981', '#06b6d4', 'Variation (ms)'); }, [variationHistory]);
 
-  // ============ DEMO MODE ACTIONS ============
+  // Demo actions
   const handleDemoTest = () => {
-    setTestRunning(true);
-    setProgress(0);
-    setRttHistory([]);
-    setVariationHistory([]);
-    setMetrics({});
-
+    setTestRunning(true); setProgress(0); setRttHistory([]); setVariationHistory([]); setMetrics({});
     const controller = streamDemoTest(
       { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss, packetIntervalMs: 50 },
       mitigationEnabled,
@@ -132,9 +130,7 @@ export default function DashboardPage() {
         if (batchMetrics.buffer_stats) setMetrics(prev => ({ ...prev, buffer_stats: batchMetrics.buffer_stats }));
       },
       (finalMetrics) => {
-        setMetrics(finalMetrics);
-        setTestRunning(false);
-        setProgress(1);
+        setMetrics(finalMetrics); setTestRunning(false); setProgress(1);
         saveTestResult({ id: Date.now().toString(), timestamp: Date.now(), metrics: finalMetrics as unknown as Record<string, unknown>, mitigationEnabled });
       },
     );
@@ -142,16 +138,10 @@ export default function DashboardPage() {
   };
 
   const handleDemoExperiment = () => {
-    setTestRunning(true);
-    setProgress(0);
-    setRttHistory([]);
-    setVariationHistory([]);
-    setMetrics({});
-
+    setTestRunning(true); setProgress(0); setRttHistory([]); setVariationHistory([]); setMetrics({});
     const config = { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss, packetIntervalMs: 50 };
     const { testA, testB } = generateDemoExperiment(config);
 
-    // Animate Test A
     let step = 0;
     const totalSteps = 40;
     const animateA = setInterval(() => {
@@ -165,11 +155,8 @@ export default function DashboardPage() {
       if (step >= totalSteps) {
         clearInterval(animateA);
         setMetrics(testA.metrics);
-
-        // Save Test A results
         const expId = `DEMO-EXP-${Date.now()}`;
 
-        // Animate Test B
         let step2 = 0;
         setTimeout(() => {
           const animateB = setInterval(() => {
@@ -199,54 +186,52 @@ export default function DashboardPage() {
     }, 100);
   };
 
-  // ============ LIVE MODE ACTIONS ============
+  // Actions
   const handleStartTest = () => {
-    if (mode === 'demo') { handleDemoTest(); return; }
+    if (isDemo) { handleDemoTest(); return; }
     setTestRunning(true); setProgress(0); setRttHistory([]); setVariationHistory([]); setMetrics({});
     send({ type: 'start_test' });
   };
 
   const handleStopTest = () => {
-    if (mode === 'demo') { demoCancel.current?.cancel(); setTestRunning(false); return; }
+    if (isDemo) { demoCancel.current?.cancel(); setTestRunning(false); return; }
     send({ type: 'stop_test' }); setTestRunning(false);
   };
 
   const handleToggleMitigation = () => {
-    if (mode === 'demo') { setMitigationEnabled(!mitigationEnabled); return; }
+    if (isDemo) { setMitigationEnabled(!mitigationEnabled); return; }
     send({ type: mitigationEnabled ? 'disable_mitigation' : 'enable_mitigation' });
   };
 
   const handleConfigureImpairment = () => {
-    if (mode === 'live') send({ type: 'configure_impairment', config: { baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss } });
+    if (isLive) send({ type: 'configure_impairment', config: { baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss } });
   };
 
   const handleStartExperiment = () => {
-    if (mode === 'demo') { handleDemoExperiment(); return; }
-    // Live experiment flow...
+    if (isDemo) { handleDemoExperiment(); return; }
     send({ type: 'start_experiment', config: { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss } });
   };
 
-  const isDemo = mode === 'demo';
   const impairmentLocked = experiment.isRunning;
 
   return (
     <div className="section animate-in">
-      {/* Hero */}
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+        <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>
           <span style={{ background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Network Jitter Dashboard
           </span>
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
-          Real-time UDP measurement · RTT variation analysis · Application-level jitter mitigation
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: 650, margin: '0 auto' }}>
+          Real-time UDP measurement · RTT variation analysis · Application-level jitter buffer mitigation
         </p>
 
-        {/* Status Bar */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+        {/* Live Status Indicators */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
           {isDemo ? (
-            <div className="badge badge-warning" style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }}>
-              🎮 Demo Mode — Simulated Data (No Backend Connected)
+            <div className="badge badge-warning" style={{ padding: '0.4rem 1rem' }}>
+              🎮 Demo Mode Active (Simulated Measurements)
             </div>
           ) : (
             <>
@@ -260,143 +245,136 @@ export default function DashboardPage() {
               </div>
             </>
           )}
-          {mitigationEnabled && <div className="badge badge-success">🛡️ Mitigation Active</div>}
+          {mitigationEnabled && <div className="badge badge-success">🛡️ Jitter Buffer Active</div>}
         </div>
-
-        {/* Mode switcher */}
-        {mode === 'detecting' && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>Detecting backend...</p>
-        )}
-        {isDemo && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-            To use live measurements, run the backend locally: <code style={{ color: 'var(--accent-cyan)' }}>cd backend && npm start</code>
-          </p>
-        )}
       </div>
-
-      {/* Experiment Lock Banner */}
-      {testRunning && isDemo && (
-        <div className="experiment-banner" style={{ marginBottom: '1.5rem' }}>
-          <span className="lock-icon">🎮</span>
-          <div>
-            <strong>Simulated Test Running</strong>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
-              Generating realistic jitter data...
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Stats Cards */}
       <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="stat-card">
-          <span className="stat-label">Avg RTT</span>
-          <span className="stat-value">{metrics.avg_rtt?.toFixed(1) ?? '—'}</span>
-          <span className="stat-unit">ms</span>
+          <span className="stat-label">Average RTT</span>
+          <span className="stat-value">{metrics.avg_rtt !== undefined ? metrics.avg_rtt.toFixed(1) : '—'}</span>
+          <span className="stat-unit">milliseconds</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">RTT Variation</span>
-          <span className="stat-value">{metrics.avg_rtt_variation?.toFixed(2) ?? '—'}</span>
-          <span className="stat-unit">ms (jitter)</span>
+          <span className="stat-label">RTT Variation (Jitter)</span>
+          <span className="stat-value" style={{ color: '#00f0ff' }}>{metrics.avg_rtt_variation !== undefined ? metrics.avg_rtt_variation.toFixed(2) : '—'}</span>
+          <span className="stat-unit">ms variance</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Packet Loss</span>
-          <span className="stat-value">{metrics.packet_loss_percent?.toFixed(1) ?? '—'}</span>
-          <span className="stat-unit">%</span>
+          <span className="stat-value" style={{ color: metrics.packet_loss_percent && metrics.packet_loss_percent > 5 ? '#f43f5e' : 'inherit' }}>
+            {metrics.packet_loss_percent !== undefined ? metrics.packet_loss_percent.toFixed(1) : '—'}
+          </span>
+          <span className="stat-unit">percentage</span>
         </div>
         <div className="stat-card">
-          <span className="stat-label">P95 RTT</span>
-          <span className="stat-value">{metrics.p95_rtt?.toFixed(1) ?? '—'}</span>
-          <span className="stat-unit">ms</span>
+          <span className="stat-label">P95 Latency</span>
+          <span className="stat-value">{metrics.p95_rtt !== undefined ? metrics.p95_rtt.toFixed(1) : '—'}</span>
+          <span className="stat-unit">ms threshold</span>
         </div>
         {mitigationEnabled && metrics.buffer_stats && (
           <>
-            <div className="stat-card">
-              <span className="stat-label">Effective Delivery Var</span>
-              <span className="stat-value">{metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}</span>
-              <span className="stat-unit">ms (buffered)</span>
+            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+              <span className="stat-label">Buffered Jitter</span>
+              <span className="stat-value" style={{ color: '#10b981' }}>{metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}</span>
+              <span className="stat-unit">ms (mitigated)</span>
             </div>
-            <div className="stat-card">
+            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
               <span className="stat-label">Buffer Depth</span>
-              <span className="stat-value">{metrics.buffer_stats.target_depth_ms?.toFixed(1) ?? '—'}</span>
-              <span className="stat-unit">ms</span>
+              <span className="stat-value">{metrics.buffer_stats.target_depth_ms?.toFixed(0) ?? '—'}</span>
+              <span className="stat-unit">ms queue</span>
             </div>
           </>
         )}
       </div>
 
-      {/* Charts */}
-      <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="glass-card" style={{ padding: '1.25rem' }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            📊 RTT (Round-Trip Time)
-          </h3>
+      {/* Real-time Progress Bar */}
+      {testRunning && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+            <span>Streaming UDP Packets...</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>{Math.round(progress * 100)}%</span>
+          </div>
+          <div className="progress-bar-container">
+            <div className="progress-bar-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
+          </div>
+        </div>
+      )}
+
+      {/* Live Charts */}
+      <div className="charts-grid">
+        <div className="chart-card">
+          <h3>📊 Round-Trip Time (RTT)</h3>
           <div className="chart-container">
             <canvas ref={rttCanvasRef} />
           </div>
         </div>
-        <div className="glass-card" style={{ padding: '1.25rem' }}>
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
-            📈 RTT Variation (Jitter)
-          </h3>
+        <div className="chart-card">
+          <h3>📈 RTT Variation (Jitter)</h3>
           <div className="chart-container">
             <canvas ref={varCanvasRef} />
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="dashboard-grid">
-        {/* Left: Test Controls */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
-          <h3 className="section-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>🎮 Test Controls</h3>
+      {/* Control Panel Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+        {/* Test Controls */}
+        <div className="glass-card" style={{ padding: '1.75rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            ⚡ Execution Controls
+          </h3>
 
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={handleStartTest}
-              disabled={testRunning || (mode === 'live' && !agentConnected)}>
-              ▶ {isDemo ? 'Run Simulated Test' : 'Start Test'}
+          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <button
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              onClick={handleStartTest}
+              disabled={testRunning || (!isDemo && !agentConnected)}
+            >
+              ▶ Start Test
             </button>
-            <button className="btn btn-danger" onClick={handleStopTest} disabled={!testRunning}>
+            <button
+              className="btn btn-danger"
+              style={{ flex: 0.6 }}
+              onClick={handleStopTest}
+              disabled={!testRunning}
+            >
               ⏹ Stop
             </button>
-            <button className="btn btn-success btn-lg" onClick={handleStartExperiment}
-              disabled={testRunning || (mode === 'live' && !agentConnected)}>
-              🔬 {isDemo ? 'Run Demo Experiment' : 'Run Paired Experiment'}
-            </button>
           </div>
 
-          {/* Progress */}
-          {testRunning && (
-            <div style={{ marginBottom: '1rem' }}>
-              <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                <div style={{ height: '100%', width: `${progress * 100}%`, background: 'var(--gradient-hero)', borderRadius: 2, transition: 'width 0.3s ease' }} />
-              </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{Math.round(progress * 100)}%</span>
-            </div>
-          )}
+          <button
+            className="btn btn-success"
+            style={{ width: '100%', marginBottom: '1.25rem' }}
+            onClick={handleStartExperiment}
+            disabled={testRunning || (!isDemo && !agentConnected)}
+          >
+            🔬 Run Paired A/B Experiment
+          </button>
 
           {/* Mitigation Toggle */}
-          <div className="toggle" onClick={handleToggleMitigation} style={{ marginBottom: '0.5rem' }}>
-            <div className={`toggle-track ${mitigationEnabled ? 'active' : ''}`} />
-            <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>
-              Adaptive Jitter Buffer {mitigationEnabled ? '(ON)' : '(OFF)'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+            <div>
+              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Adaptive Jitter Buffer</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Application-level playout smoothing</div>
+            </div>
+            <button
+              className={`btn ${mitigationEnabled ? 'btn-success' : 'btn-ghost'}`}
+              style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}
+              onClick={handleToggleMitigation}
+            >
+              {mitigationEnabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+            </button>
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            Application-level mitigation only. Does not reduce physical network jitter.
-          </p>
         </div>
 
-        {/* Right: Impairment Controls */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
-          <h3 className="section-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>
-            🌊 Network Impairment {isDemo && <span className="badge badge-warning" style={{ fontSize: '0.65rem', marginLeft: 8 }}>Demo</span>}
+        {/* Network Impairment Engine */}
+        <div className="glass-card" style={{ padding: '1.75rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🌊 Synthetic Impairment Engine
           </h3>
-          {isDemo && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-              Adjust these sliders to change the simulated network conditions, then run a test.
-            </p>
-          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="slider-group">
@@ -412,27 +390,29 @@ export default function DashboardPage() {
               <input type="range" min={0} max={30} value={packetLoss} onChange={e => setPacketLoss(Number(e.target.value))} disabled={impairmentLocked} />
             </div>
 
-            {mode === 'live' && (
+            {isLive && (
               <button className="btn btn-ghost" onClick={handleConfigureImpairment} disabled={impairmentLocked || !agentConnected}>
-                Apply Impairment
+                Apply Impairment to UDP Server
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Extra Metrics */}
+      {/* Detailed Telemetry Stats */}
       {Object.keys(metrics).length > 0 && (
         <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-          <h3 className="section-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>📋 Detailed Metrics</h3>
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+            📊 Detailed Packet Telemetry
+          </h3>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
             <MiniStat label="Min RTT" value={metrics.min_rtt} unit="ms" />
             <MiniStat label="Max RTT" value={metrics.max_rtt} unit="ms" />
-            <MiniStat label="Stdev" value={metrics.stdev_rtt} unit="ms" />
+            <MiniStat label="Std Dev" value={metrics.stdev_rtt} unit="ms" />
             <MiniStat label="P50" value={metrics.p50_rtt} unit="ms" />
             <MiniStat label="P95" value={metrics.p95_rtt} unit="ms" />
             <MiniStat label="P99" value={metrics.p99_rtt} unit="ms" />
-            <MiniStat label="Sent" value={metrics.packets_sent} />
+            <MiniStat label="Packets Sent" value={metrics.packets_sent} />
             <MiniStat label="Received" value={metrics.packets_received} />
           </div>
         </div>
@@ -443,49 +423,101 @@ export default function DashboardPage() {
 
 function MiniStat({ label, value, unit }: { label: string; value?: number; unit?: string }) {
   return (
-    <div style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)' }}>
+    <div style={{ padding: '0.85rem 1rem', background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.04)' }}>
       <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: '1.125rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-        {value !== undefined ? value.toFixed(2) : '—'}
+      <div style={{ fontSize: '1.2rem', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '0.2rem' }}>
+        {value !== undefined ? (typeof value === 'number' ? value.toFixed(1) : value) : '—'}
         {unit && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 4 }}>{unit}</span>}
       </div>
     </div>
   );
 }
 
-function drawChart(canvas: HTMLCanvasElement | null, data: number[], color1: string, color2: string, label: string) {
+// Sleek high-DPI canvas chart with glowing gradients
+function drawSleekChart(canvas: HTMLCanvasElement | null, data: number[], color1: string, color2: string, label: string) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const dpr = window.devicePixelRatio || 1;
+
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  if (rect.width === 0 || rect.height === 0) return;
+
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
-  const w = rect.width, h = rect.height;
-  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
-  const cW = w - pad.left - pad.right, cH = h - pad.top - pad.bottom;
+
+  const w = rect.width;
+  const h = rect.height;
+  const pad = { top: 20, right: 20, bottom: 25, left: 45 };
+  const cW = w - pad.left - pad.right;
+  const cH = h - pad.top - pad.bottom;
+
   ctx.clearRect(0, 0, w, h);
-  if (data.length < 2) { ctx.fillStyle = '#64748b'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`Waiting for ${label} data...`, w / 2, h / 2); return; }
-  const maxVal = Math.max(...data) * 1.2 || 1;
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
+
+  if (data.length < 2) {
+    ctx.fillStyle = '#64748b';
+    ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Waiting for ${label} stream...`, w / 2, h / 2);
+    return;
+  }
+
+  const maxVal = Math.max(...data, 10) * 1.25;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = pad.top + (cH * i) / 4;
-    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
-    ctx.fillStyle = '#64748b'; ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'right';
-    ctx.fillText((maxVal - (maxVal * i) / 4).toFixed(1), pad.left - 8, y + 3);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText((maxVal - (maxVal * i) / 4).toFixed(0), pad.left - 8, y + 3);
   }
-  const grad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-  grad.addColorStop(0, color1); grad.addColorStop(1, color2);
-  ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+
+  // Plot path
+  const grad = ctx.createLinearGradient(pad.left, 0, pad.left + cW, 0);
+  grad.addColorStop(0, color1);
+  grad.addColorStop(1, color2);
+
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  ctx.beginPath();
   for (let i = 0; i < data.length; i++) {
     const x = pad.left + (i / (data.length - 1)) * cW;
     const y = pad.top + cH - (data[i] / maxVal) * cH;
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
   ctx.stroke();
-  const aGrad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-  aGrad.addColorStop(0, color1 + '30'); aGrad.addColorStop(1, 'transparent');
-  ctx.lineTo(pad.left + cW, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath();
-  ctx.fillStyle = aGrad; ctx.fill();
-  ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, w / 2, h - 5);
+
+  // Area Fill
+  const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
+  areaGrad.addColorStop(0, color1 + '35');
+  areaGrad.addColorStop(1, 'transparent');
+
+  ctx.lineTo(pad.left + cW, pad.top + cH);
+  ctx.lineTo(pad.left, pad.top + cH);
+  ctx.closePath();
+  ctx.fillStyle = areaGrad;
+  ctx.fill();
+
+  // Latest value indicator dot
+  const lastVal = data[data.length - 1];
+  const lastX = pad.left + cW;
+  const lastY = pad.top + cH - (lastVal / maxVal) * cH;
+
+  ctx.fillStyle = color2;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+  ctx.fill();
 }
