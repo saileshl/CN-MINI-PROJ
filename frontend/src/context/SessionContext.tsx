@@ -2,9 +2,11 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000';
+const DEFAULT_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+const DEFAULT_WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000';
 const STORAGE_KEY = 'netjitter_session';
+const BACKEND_URL_KEY = 'netjitter_backend_url';
+const WS_URL_KEY = 'netjitter_ws_url';
 
 export interface SessionData {
   sessionId: string;
@@ -38,29 +40,85 @@ interface SessionContextValue {
   agentId: string | null;
   connectionState: ConnectionState;
   backendOnline: boolean | null;
-  createSession: () => Promise<SessionData | null>;
+  createSession: () => Promise<SessionData>;
   revokeAgent: () => Promise<void>;
   send: (msg: WSMessage) => void;
   subscribe: (listener: MessageListener) => () => void;
   backendUrl: string;
   wsUrl: string;
+  setBackendUrl: (url: string) => void;
+  setWsUrl: (url: string) => void;
+  isVercel: boolean;
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+function generateClientPairingCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function generateClientSession(): SessionData {
+  const sessionId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'sess_' + Date.now();
+  return {
+    sessionId,
+    pairingCode: generateClientPairingCode(),
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  };
+}
+
 export function SessionProvider({ children }: { children: React.ReactNode }) {
-  // Synchronously load saved session from localStorage on initial render
+  // URLs with localStorage persistence
+  const [backendUrl, setBackendUrlState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(BACKEND_URL_KEY) || DEFAULT_BACKEND_URL;
+    }
+    return DEFAULT_BACKEND_URL;
+  });
+
+  const [wsUrl, setWsUrlState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(WS_URL_KEY) || DEFAULT_WS_URL;
+    }
+    return DEFAULT_WS_URL;
+  });
+
+  const setBackendUrl = useCallback((url: string) => {
+    setBackendUrlState(url);
+    if (typeof window !== 'undefined') localStorage.setItem(BACKEND_URL_KEY, url);
+  }, []);
+
+  const setWsUrl = useCallback((url: string) => {
+    setWsUrlState(url);
+    if (typeof window !== 'undefined') localStorage.setItem(WS_URL_KEY, url);
+  }, []);
+
+  const isVercel = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hostname.includes('vercel.app') || window.location.protocol === 'https:';
+    }
+    return false;
+  }, []);
+
+  // Synchronously load saved session from localStorage or generate immediately
   const [session, setSession] = useState<SessionData | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed && parsed.sessionId) return parsed;
+          if (parsed && parsed.sessionId && parsed.pairingCode) return parsed;
         }
       } catch {
         // ignore
       }
+      const initial = generateClientSession();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      return initial;
     }
     return null;
   });
@@ -91,57 +149,101 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Create a brand new session
-  const createSession = useCallback(async () => {
+  // Create a brand new session (tries Next.js API, Backend API, and client-side generator)
+  const createSession = useCallback(async (): Promise<SessionData> => {
+    let newSession: SessionData | null = null;
+
+    // 1. Try local/configured backend API
     try {
-      const res = await fetch(`${BACKEND_URL}/api/session`, { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to create session');
-      const data: SessionData = await res.json();
-      setSession(data);
-      setAgentConnected(false);
-      setAgentId(null);
-      setBackendOnline(true);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const res = await fetch(`${backendUrl}/api/session`, { method: 'POST', signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        newSession = await res.json();
+        setBackendOnline(true);
       }
-      return data;
     } catch {
-      setBackendOnline(false);
-      return null;
+      // Backend not reached directly
     }
-  }, []);
+
+    // 2. Try Next.js internal API route (guaranteed to work on Vercel)
+    if (!newSession) {
+      try {
+        const res = await fetch('/api/session', { method: 'POST', signal: AbortSignal.timeout(2000) });
+        if (res.ok) {
+          newSession = await res.json();
+        }
+      } catch {
+        // Next.js API route fallback
+      }
+    }
+
+    // 3. Client-side deterministic fallback
+    if (!newSession) {
+      newSession = generateClientSession();
+    }
+
+    setSession(newSession);
+    setAgentConnected(false);
+    setAgentId(null);
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSession));
+    }
+
+    return newSession;
+  }, [backendUrl]);
 
   // Revoke paired agent
   const revokeAgent = useCallback(async () => {
-    if (!session?.sessionId) return;
-    try {
-      await fetch(`${BACKEND_URL}/api/agent/revoke`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.sessionId }),
-      });
-      setAgentConnected(false);
-      setAgentId(null);
-      await createSession();
-    } catch {
-      // ignore
+    if (session?.sessionId) {
+      try {
+        await fetch(`${backendUrl}/api/agent/revoke`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: session.sessionId }),
+          signal: AbortSignal.timeout(2000),
+        });
+      } catch {
+        // ignore
+      }
     }
-  }, [session?.sessionId, createSession]);
+    setAgentConnected(false);
+    setAgentId(null);
+    await createSession();
+  }, [session?.sessionId, backendUrl, createSession]);
 
-  // Ensure session exists on mount (create if not present in localStorage)
+  // Probe backend online status
   useEffect(() => {
-    if (!session?.sessionId) {
+    let active = true;
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(1500) });
+        if (active) setBackendOnline(res.ok);
+      } catch {
+        if (active) setBackendOnline(false);
+      }
+    };
+    checkBackend();
+    const interval = setInterval(checkBackend, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [backendUrl]);
+
+  // Ensure session exists on mount
+  useEffect(() => {
+    if (!session?.sessionId || !session?.pairingCode) {
       createSession();
     }
-  }, [session?.sessionId, createSession]);
+  }, [session?.sessionId, session?.pairingCode, createSession]);
 
-  // Single persistent WebSocket connection effect — depends solely on sessionId
+  // Single persistent WebSocket connection effect
   useEffect(() => {
     const sessionId = session?.sessionId;
     if (!sessionId) return;
 
     isCleaningUpRef.current = false;
-    const targetWsUrl = `${WS_URL}/ws/dashboard?session=${sessionId}`;
+    const targetWsUrl = `${wsUrl}/ws/dashboard?session=${sessionId}`;
 
     function cleanupWs() {
       if (reconnectTimerRef.current) {
@@ -163,21 +265,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    function connectWs() {
+    function connect() {
       if (isCleaningUpRef.current) return;
-
       cleanupWs();
-      setConnectionState('connecting');
 
       try {
+        setConnectionState('connecting');
         const ws = new WebSocket(targetWsUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
-          if (isCleaningUpRef.current) {
-            cleanupWs();
-            return;
-          }
+          if (isCleaningUpRef.current) return;
           setConnectionState('connected');
           setBackendOnline(true);
         };
@@ -209,41 +307,37 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           }
         };
 
-        ws.onclose = () => {
-          if (!isCleaningUpRef.current) {
-            wsRef.current = null;
-            setConnectionState('disconnected');
-            if (!reconnectTimerRef.current) {
-              reconnectTimerRef.current = setTimeout(() => {
-                reconnectTimerRef.current = null;
-                connectWs();
-              }, 2000);
-            }
-          }
+        ws.onerror = () => {
+          if (isCleaningUpRef.current) return;
+          setConnectionState('error');
         };
 
-        ws.onerror = () => {
-          if (!isCleaningUpRef.current) {
-            setConnectionState('disconnected');
-            setBackendOnline(false);
+        ws.onclose = (e) => {
+          if (isCleaningUpRef.current) return;
+          setConnectionState('disconnected');
+          setAgentConnected(false);
+          // Only reconnect if not closed cleanly
+          if (e.code !== 1000 && !isCleaningUpRef.current) {
+            reconnectTimerRef.current = setTimeout(connect, 3000);
           }
         };
       } catch {
         if (!isCleaningUpRef.current) {
-          setConnectionState('disconnected');
-          setBackendOnline(false);
+          setConnectionState('error');
+          reconnectTimerRef.current = setTimeout(connect, 3000);
         }
       }
     }
 
-    connectWs();
+    connect();
 
     return () => {
       isCleaningUpRef.current = true;
       cleanupWs();
     };
-  }, [session?.sessionId]);
+  }, [session?.sessionId, wsUrl]);
 
+  // Memoized context value
   const value = useMemo<SessionContextValue>(() => ({
     session,
     status,
@@ -255,8 +349,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     revokeAgent,
     send,
     subscribe,
-    backendUrl: BACKEND_URL,
-    wsUrl: WS_URL,
+    backendUrl,
+    wsUrl,
+    setBackendUrl,
+    setWsUrl,
+    isVercel,
   }), [
     session,
     status,
@@ -268,15 +365,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     revokeAgent,
     send,
     subscribe,
+    backendUrl,
+    wsUrl,
+    setBackendUrl,
+    setWsUrl,
+    isVercel,
   ]);
 
-  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+  return (
+    <SessionContext.Provider value={value}>
+      {children}
+    </SessionContext.Provider>
+  );
 }
 
-export function useSession() {
-  const ctx = useContext(SessionContext);
-  if (!ctx) {
+export function useSession(): SessionContextValue {
+  const context = useContext(SessionContext);
+  if (!context) {
     throw new Error('useSession must be used within a SessionProvider');
   }
-  return ctx;
+  return context;
 }
