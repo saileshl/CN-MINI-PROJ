@@ -321,7 +321,7 @@ class NetworkAgent:
                 print(f"[*] Pairing with code: {self.pairing_code}")
 
         try:
-            self.ws = await websockets.connect(url)
+            self.ws = await websockets.connect(url, ping_interval=30, ping_timeout=30)
             # Wait for auth response
             auth_msg = await asyncio.wait_for(self.ws.recv(), timeout=10)
             auth_data = json.loads(auth_msg)
@@ -369,7 +369,7 @@ class NetworkAgent:
         """Connect using a pairing code (used as fallback after stale token)."""
         url = f"{self.config['backend_url']}?code={code}"
         try:
-            self.ws = await websockets.connect(url)
+            self.ws = await websockets.connect(url, ping_interval=30, ping_timeout=30)
             auth_msg = await asyncio.wait_for(self.ws.recv(), timeout=10)
             auth_data = json.loads(auth_msg)
 
@@ -699,14 +699,19 @@ class NetworkAgent:
     async def run_with_reconnect(self):
         """Run agent with automatic reconnection."""
         backoff = 1
-        max_backoff = 60
+        max_backoff = 30
 
         while self.running:
-            connected = await self.connect()
+            try:
+                connected = await self.connect()
 
-            if connected:
-                backoff = 1  # Reset backoff on successful connect
-                await self.run()
+                if connected:
+                    backoff = 1  # Reset backoff on successful connect
+                    await self.run()
+            except websockets.ConnectionClosed as e:
+                print(f"[*] Connection dropped ({e}). Auto-reconnecting...", flush=True)
+            except Exception as e:
+                print(f"[!] Agent error: {e}. Auto-reconnecting...", flush=True)
 
             if not self.running:
                 break
