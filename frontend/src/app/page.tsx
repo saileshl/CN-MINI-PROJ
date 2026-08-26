@@ -36,10 +36,10 @@ export default function DashboardPage() {
   const experimentRef = useRef(experiment);
   useEffect(() => { experimentRef.current = experiment; }, [experiment]);
 
-  // Operational mode: only demo when backend is confirmed offline
-  const isLive = backendOnline === true;
-  const isDemo = backendOnline === false;
-  const isDetecting = backendOnline === null;
+  // Operational mode: Live if agent is connected, WS is connected, or backend is online
+  const isLive = agentConnected || connectionState === 'connected' || backendOnline === true;
+  const isDemo = !isLive && backendOnline === false;
+  const isDetecting = !isLive && backendOnline === null;
 
   const [testRunning, setTestRunning] = useState(false);
   const [mitigationEnabled, setMitigationEnabled] = useState(false);

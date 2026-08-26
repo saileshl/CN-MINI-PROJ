@@ -260,8 +260,8 @@ export default function SetupPage() {
         </div>
       </div>
 
-      {/* ONLY SHOW DEMO CARD IF BACKEND IS CONFIRMED OFFLINE */}
-      {backendOnline === false && (
+      {/* ONLY SHOW DEMO CARD IF BACKEND AND AGENT ARE CONFIRMED OFFLINE */}
+      {!agentConnected && backendOnline === false && (
         <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', marginBottom: '2rem', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem', color: '#fbbf24' }}>
             🎮 Looking to Explore Without Setup?

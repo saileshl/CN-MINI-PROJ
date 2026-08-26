@@ -215,11 +215,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
     const checkBackend = async () => {
+      // If WebSocket is open or agent is connected, backend is guaranteed online!
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        if (active) setBackendOnline(true);
+        return;
+      }
       try {
         const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(1500) });
         if (active) setBackendOnline(res.ok);
       } catch {
-        if (active) setBackendOnline(false);
+        if (active && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
+          setBackendOnline(false);
+        }
       }
     };
     checkBackend();
