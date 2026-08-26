@@ -226,6 +226,7 @@ function handleAgentMessage(agentWs, message) {
   console.log(`[WS-AGENT] Received from agent: ${message.type}`);
   // Agent → Dashboard: relay measurement data, status updates
   switch (message.type) {
+    case 'idle_ping':
     case 'measurement':
     case 'test_complete':
     case 'test_a_results':

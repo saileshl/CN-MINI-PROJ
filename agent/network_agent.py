@@ -299,6 +299,7 @@ class NetworkAgent:
         self.jitter_buffer = None
         self.mitigation_enabled = False
         self.current_experiment = None
+        self.test_running = False
 
     async def connect(self):
         """Connect to backend with stored credential or pairing code."""
@@ -395,6 +396,29 @@ class NetworkAgent:
             print(f"[!] Pairing connection failed: {e}")
             return False
 
+    async def _idle_ping_loop(self):
+        """Send periodic background UDP pings when no formal test is running."""
+        await asyncio.sleep(1)
+        while self.running and self.ws:
+            try:
+                if not self.test_running:
+                    client = UDPTestClient(
+                        host=self.config["udp_server_host"],
+                        port=self.config["udp_server_port"],
+                        timeout_ms=500,
+                    )
+                    res = await client.send_packet(0)
+                    client.close()
+                    if res and res.get("rtt") is not None:
+                        await self.ws.send(json.dumps({
+                            "type": "idle_ping",
+                            "rtt": round(res["rtt"], 2),
+                            "timestamp": time.time(),
+                        }))
+            except Exception:
+                pass
+            await asyncio.sleep(1.5)
+
     async def _listen(self):
         """Continuous background listener that keeps WebSocket frames and messages flowing."""
         while self.running and self.ws:
@@ -416,6 +440,7 @@ class NetworkAgent:
         print("[*] Waiting for commands from dashboard...", flush=True)
         self.command_queue = asyncio.Queue()
         listen_task = asyncio.create_task(self._listen())
+        idle_task = asyncio.create_task(self._idle_ping_loop())
 
         try:
             while self.running:
@@ -426,6 +451,7 @@ class NetworkAgent:
                 await self.handle_command(data)
         finally:
             listen_task.cancel()
+            idle_task.cancel()
 
     async def handle_command(self, data):
         """Handle incoming commands from the backend."""
@@ -476,118 +502,122 @@ class NetworkAgent:
 
     async def _run_streamed_test(self, test_config, buffer=None, phase_name=None):
         """Internal helper to stream UDP test packets asynchronously in real-time."""
-        if buffer:
-            buffer.reset()
+        self.test_running = True
+        try:
+            if buffer:
+                buffer.reset()
 
-        host = test_config["udp_target_host"]
-        port = test_config["udp_target_port"]
-        count = test_config["packet_count"]
-        interval_ms = test_config["packet_interval_ms"]
+            host = test_config["udp_target_host"]
+            port = test_config["udp_target_port"]
+            count = test_config["packet_count"]
+            interval_ms = test_config["packet_interval_ms"]
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(0.5)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(0.5)
 
-        results = []
-        rtt_values = []
-        packets_sent = 0
-        packets_received = 0
-        current_batch = []
-        batch_size = 5
+            results = []
+            rtt_values = []
+            packets_sent = 0
+            packets_received = 0
+            current_batch = []
+            batch_size = 5
 
-        for seq in range(1, count + 1):
-            send_time = time.time() * 1000  # ms
-            packet = json.dumps({
-                "seq": seq,
-                "sendTimestamp": send_time,
-            }).encode()
-
-            try:
-                sock.sendto(packet, (host, port))
-                packets_sent += 1
+            for seq in range(1, count + 1):
+                send_time = time.time() * 1000  # ms
+                packet = json.dumps({
+                    "seq": seq,
+                    "sendTimestamp": send_time,
+                }).encode()
 
                 try:
-                    data, _ = sock.recvfrom(4096)
-                    recv_time = time.time() * 1000
-                    response = json.loads(data.decode())
+                    sock.sendto(packet, (host, port))
+                    packets_sent += 1
 
-                    rtt = recv_time - send_time
-                    rtt_values.append(rtt)
-                    packets_received += 1
+                    try:
+                        data, _ = sock.recvfrom(4096)
+                        recv_time = time.time() * 1000
+                        response = json.loads(data.decode())
 
-                    result = {
-                        "seq": seq,
-                        "rtt": round(rtt, 4),
-                        "send_time": send_time,
-                        "recv_time": recv_time,
-                        "server_timestamp": response.get("serverTimestamp"),
-                        "applied_delay": response.get("appliedDelayMs", 0),
-                        "status": "received",
-                    }
+                        rtt = recv_time - send_time
+                        rtt_values.append(rtt)
+                        packets_received += 1
 
-                    if buffer is not None:
-                        buf_result = buffer.receive_packet(seq, recv_time, result)
-                        result["buffer_status"] = buf_result["status"]
+                        result = {
+                            "seq": seq,
+                            "rtt": round(rtt, 4),
+                            "send_time": send_time,
+                            "recv_time": recv_time,
+                            "server_timestamp": response.get("serverTimestamp"),
+                            "applied_delay": response.get("appliedDelayMs", 0),
+                            "status": "received",
+                        }
 
-                except socket.timeout:
+                        if buffer is not None:
+                            buf_result = buffer.receive_packet(seq, recv_time, result)
+                            result["buffer_status"] = buf_result["status"]
+
+                    except socket.timeout:
+                        result = {
+                            "seq": seq,
+                            "rtt": None,
+                            "send_time": send_time,
+                            "recv_time": None,
+                            "status": "timeout",
+                        }
+                except Exception as e:
                     result = {
                         "seq": seq,
                         "rtt": None,
-                        "send_time": send_time,
-                        "recv_time": None,
-                        "status": "timeout",
+                        "status": "error",
+                        "error": str(e),
                     }
-            except Exception as e:
-                result = {
-                    "seq": seq,
-                    "rtt": None,
-                    "status": "error",
-                    "error": str(e),
-                }
 
-            results.append(result)
-            current_batch.append(result)
+                results.append(result)
+                current_batch.append(result)
 
-            if len(current_batch) >= batch_size or seq == count:
-                rtt_batch = [r["rtt"] for r in current_batch if r.get("rtt") is not None]
-                batch_metrics = calculate_metrics(rtt_batch) if rtt_batch else {}
-                try:
-                    await self.ws.send(json.dumps({
-                        "type": "measurement",
-                        "phase": phase_name,
-                        "batch": current_batch,
-                        "batchMetrics": batch_metrics,
-                        "progress": round(seq / count, 2),
-                        "mitigationEnabled": buffer is not None,
-                        "bufferStats": buffer.get_stats() if buffer else None,
-                    }))
-                except Exception:
-                    pass
-                current_batch = []
+                if len(current_batch) >= batch_size or seq == count:
+                    rtt_batch = [r["rtt"] for r in current_batch if r.get("rtt") is not None]
+                    batch_metrics = calculate_metrics(rtt_batch) if rtt_batch else {}
+                    try:
+                        await self.ws.send(json.dumps({
+                            "type": "measurement",
+                            "phase": phase_name,
+                            "batch": current_batch,
+                            "batchMetrics": batch_metrics,
+                            "progress": round(seq / count, 2),
+                            "mitigationEnabled": buffer is not None,
+                            "bufferStats": buffer.get_stats() if buffer else None,
+                        }))
+                    except Exception:
+                        pass
+                    current_batch = []
 
-            elapsed = (time.time() * 1000) - send_time
-            sleep_ms = max(0, interval_ms - elapsed)
-            if sleep_ms > 0:
-                await asyncio.sleep(sleep_ms / 1000)
+                elapsed = (time.time() * 1000) - send_time
+                sleep_ms = max(0, interval_ms - elapsed)
+                if sleep_ms > 0:
+                    await asyncio.sleep(sleep_ms / 1000)
 
-        sock.close()
+            sock.close()
 
-        # Calculate metrics
-        packet_loss = ((packets_sent - packets_received) / packets_sent * 100) if packets_sent > 0 else 0
-        metrics = calculate_metrics(rtt_values)
-        metrics["packets_sent"] = packets_sent
-        metrics["packets_received"] = packets_received
-        metrics["packet_loss_percent"] = round(packet_loss, 2)
+            # Calculate metrics
+            packet_loss = ((packets_sent - packets_received) / packets_sent * 100) if packets_sent > 0 else 0
+            metrics = calculate_metrics(rtt_values)
+            metrics["packets_sent"] = packets_sent
+            metrics["packets_received"] = packets_received
+            metrics["packet_loss_percent"] = round(packet_loss, 2)
 
-        if buffer is not None:
-            current_time = time.time() * 1000
-            while True:
-                playout_result = buffer.playout(current_time)
-                if playout_result is None:
-                    break
-                current_time += buffer.playout_interval_ms
-            metrics["buffer_stats"] = buffer.get_stats()
+            if buffer is not None:
+                current_time = time.time() * 1000
+                while True:
+                    playout_result = buffer.playout(current_time)
+                    if playout_result is None:
+                        break
+                    current_time += buffer.playout_interval_ms
+                metrics["buffer_stats"] = buffer.get_stats()
 
-        return results, metrics
+            return results, metrics
+        finally:
+            self.test_running = False
 
     async def run_test(self):
         """Run a single ad-hoc UDP test with live streaming."""

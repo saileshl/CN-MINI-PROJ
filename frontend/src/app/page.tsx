@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const experimentRef = useRef(experiment);
   useEffect(() => { experimentRef.current = experiment; }, [experiment]);
 
-  // Operational mode: Live if agent is connected, WS is connected, or backend is online
+  // Operational mode: LIVE if agent is connected, WS is connected, or backend is online
   const isLive = agentConnected || connectionState === 'connected' || backendOnline === true;
   const isDemo = !isLive && backendOnline === false;
   const isDetecting = !isLive && backendOnline === null;
@@ -62,6 +62,20 @@ export default function DashboardPage() {
   useEffect(() => {
     const unsubscribe = subscribe((msg: WSMessage) => {
       switch (msg.type) {
+        case 'idle_ping': {
+          const rtt = msg.rtt as number;
+          if (rtt !== null && rtt !== undefined) {
+            setRttHistory(prev => [...prev, rtt].slice(-100));
+            setMetrics(prev => ({
+              ...prev,
+              avg_rtt: rtt,
+              min_rtt: prev.min_rtt !== undefined ? Math.min(prev.min_rtt, rtt) : rtt,
+              max_rtt: prev.max_rtt !== undefined ? Math.max(prev.max_rtt, rtt) : rtt,
+            }));
+          }
+          break;
+        }
+
         case 'measurement': {
           const batch = msg.batch as Array<Record<string, unknown>>;
           const newRtts: number[] = [];
@@ -326,10 +340,20 @@ export default function DashboardPage() {
             ⚡ Execution Controls
           </h3>
 
+          {/* Prompt banner when agent is connected and ready */}
+          {isLive && agentConnected && !testRunning && (
+            <div style={{ padding: '0.75rem 1rem', background: 'rgba(0, 240, 255, 0.08)', border: '1px solid rgba(0, 240, 255, 0.3)', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>⚡</span>
+              <div style={{ fontSize: '0.825rem', color: '#00f0ff', fontWeight: 600 }}>
+                Agent connected! Click <strong>▶ Start Test</strong> below to stream 200 UDP measurement packets.
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
             <button
               className="btn btn-primary"
-              style={{ flex: 1 }}
+              style={{ flex: 1, boxShadow: '0 0 20px rgba(0, 240, 255, 0.35)' }}
               onClick={handleStartTest}
               disabled={testRunning || (!isDemo && !agentConnected)}
             >
@@ -456,10 +480,20 @@ function drawSleekChart(canvas: HTMLCanvasElement | null, data: number[], color1
   ctx.clearRect(0, 0, w, h);
 
   if (data.length < 2) {
-    ctx.fillStyle = '#64748b';
-    ctx.font = '12px "Plus Jakarta Sans", sans-serif';
+    // Draw background grid lines in standby
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad.top + (cH * i) / 4;
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(w - pad.right, y);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = '600 12px "Plus Jakarta Sans", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`Waiting for ${label} stream...`, w / 2, h / 2);
+    ctx.fillText(`⚡ Connected · Click '▶ Start Test' to stream data`, w / 2, h / 2);
     return;
   }
 
