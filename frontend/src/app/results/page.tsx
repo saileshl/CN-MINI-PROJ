@@ -32,44 +32,48 @@ export default function ResultsPage() {
   return (
     <div className="section animate-in">
       <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-          <span style={{ background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Test Results
-          </span>
+        <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+          Test Results & Analytics
         </h1>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Results are stored locally in your browser (localStorage). Not synced to any server.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 550, margin: '0 auto' }}>
+          Historical benchmarks and paired A/B experiment comparisons stored locally.
         </p>
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
         <button className="btn btn-primary" onClick={handleExport}>
-          📥 Export JSON
+          Export JSON
         </button>
         <button className="btn btn-ghost" onClick={handleClearAll}>
-          🗑️ Clear All
+          Clear All
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="tabs" style={{ justifyContent: 'center' }}>
-        <div className={`tab ${activeTab === 'experiments' ? 'active' : ''}`} onClick={() => setActiveTab('experiments')}>
-          🔬 Paired Experiments ({experiments.length})
-        </div>
-        <div className={`tab ${activeTab === 'tests' ? 'active' : ''}`} onClick={() => setActiveTab('tests')}>
-          📊 Ad-hoc Tests ({testResults.length})
-        </div>
+      {/* Tabs (shadcn style) */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.35rem', marginBottom: '1.5rem' }}>
+        <button
+          className={`btn ${activeTab === 'experiments' ? 'btn-secondary' : 'btn-ghost'}`}
+          onClick={() => setActiveTab('experiments')}
+        >
+          Paired Experiments ({experiments.length})
+        </button>
+        <button
+          className={`btn ${activeTab === 'tests' ? 'btn-secondary' : 'btn-ghost'}`}
+          onClick={() => setActiveTab('tests')}
+        >
+          Ad-hoc Tests ({testResults.length})
+        </button>
       </div>
 
       {/* Experiments */}
       {activeTab === 'experiments' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {experiments.length === 0 ? (
             <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '1.125rem' }}>No experiments yet</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                Run a Paired Experiment from the Dashboard to compare before/after mitigation.
+              <p style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 600 }}>No experiments recorded yet</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '0.35rem' }}>
+                Run a Paired A/B Experiment from the Dashboard to compare before/after mitigation.
               </p>
             </div>
           ) : (
@@ -82,10 +86,10 @@ export default function ResultsPage() {
 
       {/* Tests */}
       {activeTab === 'tests' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
           {testResults.length === 0 ? (
             <div className="glass-card" style={{ padding: '3rem', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '1.125rem' }}>No test results yet</p>
+              <p style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 600 }}>No test results yet</p>
             </div>
           ) : (
             testResults.map((result) => (
@@ -107,23 +111,23 @@ function ExperimentCard({ experiment }: { experiment: ExperimentRecord }) {
   return (
     <div className="glass-card" style={{ padding: '1.5rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
         <div>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700 }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             {experiment.experimentId}
           </h3>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {new Date(experiment.timestamp).toLocaleString()}
           </p>
         </div>
-        <span className="badge badge-info">Both tests used the same impairment schedule</span>
+        <span className="badge badge-info">Paired schedule comparison</span>
       </div>
 
-      {/* Config */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <span className="badge badge-warning">Base Delay: {String(config?.baseDelayMs ?? '?')}ms</span>
-        <span className="badge badge-warning">Jitter: ±{String(config?.randomJitterMs ?? '?')}ms</span>
-        <span className="badge badge-warning">Loss: {String(config?.packetLossPercent ?? '?')}%</span>
+      {/* Config Badges */}
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <span className="badge">Base Delay: {String(config?.baseDelayMs ?? '?')}ms</span>
+        <span className="badge">Jitter: ±{String(config?.randomJitterMs ?? '?')}ms</span>
+        <span className="badge">Loss: {String(config?.packetLossPercent ?? '?')}%</span>
         <span className="badge badge-info">Packets: {String(config?.packetCount ?? '?')}</span>
       </div>
 
@@ -138,8 +142,8 @@ function ExperimentCard({ experiment }: { experiment: ExperimentRecord }) {
         </thead>
         <tbody>
           <CompRow label="Avg RTT" a={testA?.avg_rtt} b={testB?.avg_rtt} unit="ms" />
-          <CompRow label="Raw RTT Variation" a={testA?.avg_rtt_variation} b={testB?.avg_rtt_variation} unit="ms" note="should be similar" />
-          <CompRow label="Effective Delivery Var." a={null} b={bufferStats?.effective_delivery_variation} unit="ms" note="should be lower" highlight />
+          <CompRow label="Raw RTT Variation" a={testA?.avg_rtt_variation} b={testB?.avg_rtt_variation} unit="ms" note="physical network jitter" />
+          <CompRow label="Effective Delivery Var." a={null} b={bufferStats?.effective_delivery_variation} unit="ms" note="mitigated playout" highlight />
           <CompRow label="Packet Loss" a={testA?.packet_loss_percent} b={testB?.packet_loss_percent} unit="%" />
           <CompRow label="Min RTT" a={testA?.min_rtt} b={testB?.min_rtt} unit="ms" />
           <CompRow label="Max RTT" a={testA?.max_rtt} b={testB?.max_rtt} unit="ms" />
@@ -150,8 +154,8 @@ function ExperimentCard({ experiment }: { experiment: ExperimentRecord }) {
         </tbody>
       </table>
 
-      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1rem', fontStyle: 'italic' }}>
-        Raw network metrics (RTT, RTT Variation) reflect actual network conditions. Effective delivery variation reflects the application-level improvement from the adaptive jitter buffer. The buffer does not reduce physical network jitter.
+      <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '0.85rem' }}>
+        Raw network metrics reflect actual network conditions. Effective delivery variation reflects the application-level improvement from the adaptive jitter buffer.
       </p>
     </div>
   );
@@ -173,12 +177,12 @@ function CompRow({ label, a, b, unit, note, highlight }: {
 
   return (
     <tr>
-      <td style={{ color: highlight ? 'var(--accent-cyan)' : undefined, fontWeight: highlight ? 600 : undefined }}>
+      <td style={{ color: highlight ? 'var(--accent-cream)' : undefined, fontWeight: highlight ? 600 : undefined }}>
         {label}
-        {note && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>({note})</span>}
+        {note && <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)', display: 'block' }}>({note})</span>}
       </td>
       <td>{format(a)}</td>
-      <td style={{ color: highlight ? 'var(--accent-green)' : undefined }}>{format(b)}</td>
+      <td style={{ color: highlight ? 'var(--accent-sage)' : undefined, fontWeight: highlight ? 600 : undefined }}>{format(b)}</td>
     </tr>
   );
 }
@@ -187,17 +191,17 @@ function TestResultCard({ result }: { result: TestResult }) {
   const m = result.metrics as Record<string, unknown>;
   return (
     <div className="glass-card" style={{ padding: '1.25rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           {new Date(result.timestamp).toLocaleString()}
         </span>
         <span className={`badge ${result.mitigationEnabled ? 'badge-success' : 'badge-info'}`}>
-          {result.mitigationEnabled ? '🛡️ Mitigation ON' : 'Raw'}
+          {result.mitigationEnabled ? 'Mitigation Active' : 'Raw Stream'}
         </span>
       </div>
-      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+      <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))' }}>
         <MiniStat label="Avg RTT" value={m.avg_rtt} unit="ms" />
-        <MiniStat label="RTT Variation" value={m.avg_rtt_variation} unit="ms" />
+        <MiniStat label="Variation" value={m.avg_rtt_variation} unit="ms" />
         <MiniStat label="Loss" value={m.packet_loss_percent} unit="%" />
         <MiniStat label="P95" value={m.p95_rtt} unit="ms" />
       </div>
@@ -208,10 +212,10 @@ function TestResultCard({ result }: { result: TestResult }) {
 function MiniStat({ label, value, unit }: { label: string; value: unknown; unit?: string }) {
   const v = typeof value === 'number' ? value.toFixed(2) : '—';
   return (
-    <div style={{ padding: '0.5rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)' }}>
+    <div style={{ padding: '0.65rem 0.75rem', background: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
       <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{label}</div>
-      <div style={{ fontSize: '1rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-        {v}{unit && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}> {unit}</span>}
+      <div style={{ fontSize: '1rem', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '0.1rem', color: 'var(--text-primary)' }}>
+        {v}{unit && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: 2 }}>{unit}</span>}
       </div>
     </div>
   );

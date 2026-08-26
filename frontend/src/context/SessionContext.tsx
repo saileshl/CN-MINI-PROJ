@@ -211,9 +211,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await createSession();
   }, [session?.sessionId, backendUrl, createSession]);
 
-  // Probe backend online status
+  // Probe backend online status with initial mount grace period
   useEffect(() => {
     let active = true;
+    let hasMounted = false;
+
     const checkBackend = async () => {
       // If WebSocket is open or agent is connected, backend is guaranteed online!
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -224,15 +226,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch(`${backendUrl}/api/health`, { signal: AbortSignal.timeout(1500) });
         if (active) setBackendOnline(res.ok);
       } catch {
-        if (active && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
+        // Only set offline if mounted and WebSocket is not currently opening
+        if (active && hasMounted && (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)) {
           setBackendOnline(false);
         }
       }
     };
+
+    // Immediate probe
     checkBackend();
-    const interval = setInterval(checkBackend, 10000);
+    
+    // Mark mounted after 2.5s grace period so WebSocket has time to shake hands
+    const mountTimer = setTimeout(() => {
+      hasMounted = true;
+    }, 2500);
+
+    const interval = setInterval(checkBackend, 8000);
     return () => {
       active = false;
+      clearTimeout(mountTimer);
       clearInterval(interval);
     };
   }, [backendUrl]);

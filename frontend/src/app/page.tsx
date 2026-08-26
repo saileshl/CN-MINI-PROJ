@@ -37,10 +37,10 @@ export default function DashboardPage() {
   const experimentRef = useRef(experiment);
   useEffect(() => { experimentRef.current = experiment; }, [experiment]);
 
-  // Operational mode: LIVE if agent is connected, WS is connected, or backend is online
+  // Operational mode: Live if connected or during connecting grace period
   const isLive = agentConnected || connectionState === 'connected' || backendOnline === true;
-  const isDemo = !isLive && backendOnline === false;
-  const isDetecting = !isLive && backendOnline === null;
+  const isConnecting = connectionState === 'connecting' && backendOnline !== false;
+  const isDemo = !isLive && !isConnecting && backendOnline === false;
 
   const [testRunning, setTestRunning] = useState(false);
   const [mitigationEnabled, setMitigationEnabled] = useState(false);
@@ -232,39 +232,37 @@ export default function DashboardPage() {
     <div className="section animate-in">
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>
-          <span style={{ background: 'var(--gradient-hero)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Network Jitter Dashboard
-          </span>
+        <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
+          Network Jitter Dashboard
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: 650, margin: '0 auto' }}>
-          Real-time UDP measurement · RTT variation analysis · Application-level jitter buffer mitigation
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 600, margin: '0 auto' }}>
+          Real-time UDP measurement, RTT variation analysis, and adaptive jitter buffer mitigation.
         </p>
 
-        {/* Live Status Indicators */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
+        {/* Live Status Badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
           {isDemo ? (
-            <div className="badge badge-warning" style={{ padding: '0.4rem 1rem' }}>
-              🎮 Demo Mode Active (Simulated Measurements)
+            <div className="badge badge-warning">
+              Demo Mode Active (Simulated)
             </div>
           ) : (
             <>
-              <div className={`badge ${connectionState === 'connected' ? 'badge-success' : connectionState === 'connecting' ? 'badge-info' : 'badge-warning'}`}>
-                <span className={`status-dot ${connectionState === 'connected' ? 'connected' : connectionState === 'connecting' ? 'connecting' : 'disconnected'}`} />
+              <div className={`badge ${connectionState === 'connected' ? 'badge-success' : 'badge-info'}`}>
+                <span className={`status-dot ${connectionState === 'connected' ? 'connected' : 'connecting'}`} />
                 WS: {connectionState}
               </div>
-              <div className={`badge ${agentConnected ? 'badge-success' : connectionState === 'connecting' ? 'badge-info' : 'badge-danger'}`}>
-                <span className={`status-dot ${agentConnected ? 'connected' : connectionState === 'connecting' ? 'connecting' : 'disconnected'}`} />
-                Agent: {agentConnected ? 'Connected' : connectionState === 'connecting' ? 'Connecting...' : 'Not Connected'}
+              <div className={`badge ${agentConnected ? 'badge-success' : isConnecting ? 'badge-info' : 'badge-danger'}`}>
+                <span className={`status-dot ${agentConnected ? 'connected' : isConnecting ? 'connecting' : 'disconnected'}`} />
+                Agent: {agentConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Not Connected'}
               </div>
             </>
           )}
-          {mitigationEnabled && <div className="badge badge-success">🛡️ Jitter Buffer Active</div>}
+          {mitigationEnabled && <div className="badge badge-success">Jitter Buffer Active</div>}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+      {/* Stats Metrics Cards */}
+      <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
         <div className="stat-card">
           <span className="stat-label">Average RTT</span>
           <span className="stat-value">{metrics.avg_rtt !== undefined ? metrics.avg_rtt.toFixed(1) : '—'}</span>
@@ -272,12 +270,12 @@ export default function DashboardPage() {
         </div>
         <div className="stat-card">
           <span className="stat-label">RTT Variation (Jitter)</span>
-          <span className="stat-value" style={{ color: '#00f0ff' }}>{metrics.avg_rtt_variation !== undefined ? metrics.avg_rtt_variation.toFixed(2) : '—'}</span>
+          <span className="stat-value" style={{ color: 'var(--accent-slate)' }}>{metrics.avg_rtt_variation !== undefined ? metrics.avg_rtt_variation.toFixed(2) : '—'}</span>
           <span className="stat-unit">ms variance</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Packet Loss</span>
-          <span className="stat-value" style={{ color: metrics.packet_loss_percent && metrics.packet_loss_percent > 5 ? '#f43f5e' : 'inherit' }}>
+          <span className="stat-value" style={{ color: metrics.packet_loss_percent && metrics.packet_loss_percent > 5 ? 'var(--accent-rose)' : 'inherit' }}>
             {metrics.packet_loss_percent !== undefined ? metrics.packet_loss_percent.toFixed(1) : '—'}
           </span>
           <span className="stat-unit">percentage</span>
@@ -289,12 +287,12 @@ export default function DashboardPage() {
         </div>
         {mitigationEnabled && metrics.buffer_stats && (
           <>
-            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+            <div className="stat-card" style={{ borderColor: 'rgba(142, 168, 157, 0.3)' }}>
               <span className="stat-label">Buffered Jitter</span>
-              <span className="stat-value" style={{ color: '#10b981' }}>{metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}</span>
+              <span className="stat-value" style={{ color: '#8EA89D' }}>{metrics.buffer_stats.effective_delivery_variation?.toFixed(2) ?? '—'}</span>
               <span className="stat-unit">ms (mitigated)</span>
             </div>
-            <div className="stat-card" style={{ borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+            <div className="stat-card" style={{ borderColor: 'rgba(142, 168, 157, 0.3)' }}>
               <span className="stat-label">Buffer Depth</span>
               <span className="stat-value">{metrics.buffer_stats.target_depth_ms?.toFixed(0) ?? '—'}</span>
               <span className="stat-unit">ms queue</span>
@@ -305,10 +303,10 @@ export default function DashboardPage() {
 
       {/* Real-time Progress Bar */}
       {testRunning && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.35rem' }}>
             <span>Streaming UDP Packets...</span>
-            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>{Math.round(progress * 100)}%</span>
+            <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cream)' }}>{Math.round(progress * 100)}%</span>
           </div>
           <div className="progress-bar-container">
             <div className="progress-bar-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -316,52 +314,52 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Real-time Charts with Live Telemetry & Interactive Tooltips */}
+      {/* Real-time Charts with Live Telemetry */}
       <div className="charts-grid">
         <RealtimeChart
           title="Round-Trip Time (RTT)"
           unit="ms"
           data={rttHistory}
-          colorTheme="cyan"
+          colorTheme="slate"
           icon="📊"
-          height={240}
+          height={220}
         />
         <RealtimeChart
           title="RTT Variation (Jitter)"
           unit="ms"
           data={variationHistory}
-          colorTheme="emerald"
+          colorTheme="cream"
           icon="📈"
-          height={240}
+          height={220}
         />
       </div>
 
       {/* Control Panel Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
         {/* Test Controls */}
-        <div className="glass-card" style={{ padding: '1.75rem' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            ⚡ Execution Controls
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
+            Execution Controls
           </h3>
 
           {/* Prompt banner when agent is connected and ready */}
           {isLive && agentConnected && !testRunning && (
-            <div style={{ padding: '0.75rem 1rem', background: 'rgba(0, 240, 255, 0.08)', border: '1px solid rgba(0, 240, 255, 0.3)', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <span style={{ fontSize: '1.1rem' }}>⚡</span>
-              <div style={{ fontSize: '0.825rem', color: '#00f0ff', fontWeight: 600 }}>
-                Agent connected! Click <strong>▶ Start Test</strong> below to stream 200 UDP measurement packets.
+            <div style={{ padding: '0.65rem 0.85rem', background: 'rgba(109, 129, 150, 0.1)', border: '1px solid rgba(109, 129, 150, 0.25)', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem' }}>⚡</span>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+                Agent connected. Click <strong>Start Test</strong> to benchmark 200 packets.
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
             <button
               className="btn btn-primary"
-              style={{ flex: 1, boxShadow: '0 0 20px rgba(0, 240, 255, 0.35)' }}
+              style={{ flex: 1 }}
               onClick={handleStartTest}
               disabled={testRunning || (!isDemo && !agentConnected)}
             >
-              ▶ Start Test
+              Start Test
             </button>
             <button
               className="btn btn-danger"
@@ -369,42 +367,42 @@ export default function DashboardPage() {
               onClick={handleStopTest}
               disabled={!testRunning}
             >
-              ⏹ Stop
+              Stop
             </button>
           </div>
 
           <button
-            className="btn btn-success"
-            style={{ width: '100%', marginBottom: '1.25rem' }}
+            className="btn btn-secondary"
+            style={{ width: '100%', marginBottom: '1rem' }}
             onClick={handleStartExperiment}
             disabled={testRunning || (!isDemo && !agentConnected)}
           >
-            🔬 Run Paired A/B Experiment
+            Run Paired A/B Experiment
           </button>
 
           {/* Mitigation Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.85rem 1rem', background: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
             <div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>Adaptive Jitter Buffer</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Application-level playout smoothing</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Adaptive Jitter Buffer</div>
+              <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Playout delay smoothing</div>
             </div>
             <button
               className={`btn ${mitigationEnabled ? 'btn-success' : 'btn-ghost'}`}
-              style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
               onClick={handleToggleMitigation}
             >
-              {mitigationEnabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+              {mitigationEnabled ? 'Active' : 'Disabled'}
             </button>
           </div>
         </div>
 
         {/* Network Impairment Engine */}
-        <div className="glass-card" style={{ padding: '1.75rem' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            🌊 Synthetic Impairment Engine
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
+            Synthetic Impairment Engine
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="slider-group">
               <label>Base Delay <span>{baseDelay} ms</span></label>
               <input type="range" min={0} max={200} value={baseDelay} onChange={e => setBaseDelay(Number(e.target.value))} disabled={impairmentLocked} />
@@ -429,18 +427,18 @@ export default function DashboardPage() {
 
       {/* Detailed Telemetry Stats */}
       {Object.keys(metrics).length > 0 && (
-        <div className="glass-card" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-            📊 Detailed Packet Telemetry
+        <div className="glass-card" style={{ padding: '1.25rem', marginTop: '1.25rem' }}>
+          <h3 style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Detailed Telemetry
           </h3>
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))' }}>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
             <MiniStat label="Min RTT" value={metrics.min_rtt} unit="ms" />
             <MiniStat label="Max RTT" value={metrics.max_rtt} unit="ms" />
             <MiniStat label="Std Dev" value={metrics.stdev_rtt} unit="ms" />
             <MiniStat label="P50" value={metrics.p50_rtt} unit="ms" />
             <MiniStat label="P95" value={metrics.p95_rtt} unit="ms" />
             <MiniStat label="P99" value={metrics.p99_rtt} unit="ms" />
-            <MiniStat label="Packets Sent" value={metrics.packets_sent} />
+            <MiniStat label="Sent" value={metrics.packets_sent} />
             <MiniStat label="Received" value={metrics.packets_received} />
           </div>
         </div>
@@ -451,11 +449,11 @@ export default function DashboardPage() {
 
 function MiniStat({ label, value, unit }: { label: string; value?: number; unit?: string }) {
   return (
-    <div style={{ padding: '0.85rem 1rem', background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(255,255,255,0.04)' }}>
-      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: '1.2rem', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '0.2rem' }}>
+    <div style={{ padding: '0.75rem 0.85rem', background: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+      <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+      <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-mono)', marginTop: '0.15rem', color: 'var(--text-primary)' }}>
         {value !== undefined ? (typeof value === 'number' ? value.toFixed(1) : value) : '—'}
-        {unit && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 4 }}>{unit}</span>}
+        {unit && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: 3 }}>{unit}</span>}
       </div>
     </div>
   );
