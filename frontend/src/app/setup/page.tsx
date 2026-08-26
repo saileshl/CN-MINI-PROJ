@@ -117,11 +117,11 @@ export default function SetupPage() {
                 <h3>Download the Network Agent</h3>
                 <p>Get the Python agent source or the Windows executable.</p>
                 <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                  <a href="https://github.com/YOUR_REPO/releases/latest" target="_blank" rel="noopener noreferrer"
+                  <a href="https://github.com/saileshl/CN-MINI-PROJ/releases/latest" target="_blank" rel="noopener noreferrer"
                      className="btn btn-primary btn-lg">
                     ⬇️ Download for Windows (.exe)
                   </a>
-                  <a href="https://github.com/YOUR_REPO" target="_blank" rel="noopener noreferrer"
+                  <a href="https://github.com/saileshl/CN-MINI-PROJ" target="_blank" rel="noopener noreferrer"
                      className="btn btn-ghost">
                     📦 Source Code
                   </a>

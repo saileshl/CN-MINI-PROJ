@@ -127,8 +127,8 @@ For paired experiments, the server uses **deterministic schedule replay** — sa
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd <repository-name>
+git clone https://github.com/saileshl/CN-MINI-PROJ.git
+cd CN-MINI-PROJ
 
 # Backend
 cd backend
