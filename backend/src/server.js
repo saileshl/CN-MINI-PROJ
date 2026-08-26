@@ -223,6 +223,7 @@ function handleDashboardConnection(ws, query) {
 // ----------------------------------------------------------
 
 function handleAgentMessage(agentWs, message) {
+  console.log(`[WS-AGENT] Received from agent: ${message.type}`);
   // Agent → Dashboard: relay measurement data, status updates
   switch (message.type) {
     case 'measurement':
@@ -247,6 +248,17 @@ function handleAgentMessage(agentWs, message) {
       break;
     }
 
+    case 'reload_schedule_request': {
+      if (message.experimentId) {
+        const exp = experimentManager.getExperiment(message.experimentId);
+        if (exp) {
+          udpServer.loadSchedule(exp.schedule);
+          console.log(`[UDP] Reloaded impairment schedule for experiment ${message.experimentId}`);
+        }
+      }
+      break;
+    }
+
     default:
       // Forward unknown types to dashboard
       sessionManager.routeToDashboard(agentWs, message);
@@ -254,13 +266,15 @@ function handleAgentMessage(agentWs, message) {
 }
 
 function handleDashboardMessage(dashboardWs, sessionId, message) {
+  console.log(`[WS-DASHBOARD] Received from session ${sessionId}: ${message.type}`);
   // Dashboard → Agent: relay commands
   switch (message.type) {
     case 'start_test':
     case 'stop_test':
     case 'enable_mitigation':
     case 'disable_mitigation':
-      sessionManager.routeToAgent(sessionId, message);
+      const res = sessionManager.routeToAgent(sessionId, message);
+      console.log(`[WS-DASHBOARD] Routed ${message.type} to agent -> result:`, res);
       break;
 
     case 'configure_impairment':

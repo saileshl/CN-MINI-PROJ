@@ -1,39 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from '@/hooks/useSession';
-import { useWebSocket, WSMessage } from '@/hooks/useWebSocket';
 import Link from 'next/link';
 
 export default function SetupPage() {
-  const { session, wsUrl, revokeAgent, createSession } = useSession();
-  const [agentConnected, setAgentConnected] = useState(false);
-  const [agentId, setAgentId] = useState<string | null>(null);
+  const { session, status: sessionStatus, agentConnected, agentId, backendOnline, revokeAgent, createSession } = useSession();
   const [activeTab, setActiveTab] = useState<'windows' | 'mac' | 'linux'>('windows');
   const [codeExpired, setCodeExpired] = useState(false);
-  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  const onMessage = useCallback((msg: WSMessage) => {
-    if (msg.type === 'agent_status') {
-      setAgentConnected(msg.status === 'connected');
-      setAgentId((msg.agentId as string) || null);
-    }
-  }, []);
-
-  const { connectionState } = useWebSocket({
-    url: wsUrl,
-    sessionId: backendOnline ? (session?.sessionId || null) : null,
-    onMessage,
-  });
-
-  // Check backend reachability
   useEffect(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-    fetch(`${backendUrl}/api/health`, { signal: controller.signal })
-      .then(res => { clearTimeout(timer); setBackendOnline(res.ok); })
-      .catch(() => { clearTimeout(timer); setBackendOnline(false); });
+    setMounted(true);
   }, []);
 
   // Check code expiry
@@ -49,6 +27,8 @@ export default function SetupPage() {
     await createSession();
     setCodeExpired(false);
   };
+
+  const isPaired = sessionStatus?.paired || (agentConnected && !!agentId);
 
   return (
     <div className="section animate-in">
@@ -83,38 +63,77 @@ export default function SetupPage() {
       {/* Agent Status */}
       <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <span className={`status-dot ${agentConnected ? 'connected' : backendOnline ? 'disconnected' : 'connecting'}`}
+          <span className={`status-dot ${agentConnected ? 'connected' : isPaired ? 'connecting' : backendOnline ? 'disconnected' : 'connecting'}`}
                 style={{ width: 16, height: 16 }} />
           <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>
             {backendOnline === false
               ? 'Backend: Offline'
               : agentConnected
-                ? '🟢 Agent Connected'
-                : '🔴 Agent Not Connected'
+                ? '🟢 Agent Connected & Active'
+                : isPaired
+                  ? '🟡 Agent Paired (Process Offline)'
+                  : '🔴 Agent Not Connected'
             }
           </span>
         </div>
-        {agentConnected && agentId && (
+        {agentId && (
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
             Agent ID: <code style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>{agentId.slice(0, 8)}...</code>
           </p>
         )}
-        {agentConnected && (
+        {agentConnected ? (
           <div style={{ marginTop: '1rem' }}>
             <p style={{ color: 'var(--accent-green)', fontWeight: 600, marginBottom: '0.5rem' }}>
-              ✓ Your agent is paired. Future startups will connect automatically — no code needed.
+              ✓ Your agent is actively connected and ready to run tests!
             </p>
-            <button className="btn btn-ghost" onClick={revokeAgent} style={{ marginTop: '0.5rem' }}>
-              Revoke & Re-pair Agent
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '0.75rem' }}>
+              <Link href="/" className="btn btn-primary">
+                ⚡ Go to Dashboard
+              </Link>
+              <button className="btn btn-ghost" onClick={revokeAgent}>
+                Revoke & Re-pair
+              </button>
+            </div>
+          </div>
+        ) : isPaired ? (
+          <div style={{ marginTop: '1rem' }}>
+            <p style={{ color: 'var(--accent-amber)', fontWeight: 600, marginBottom: '0.25rem' }}>
+              Agent credentials exist, but the Python agent is not currently running.
+            </p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+              Start the agent in your terminal: <code style={{ color: 'var(--accent-cyan)' }}>python network_agent.py</code> (no code needed).
+            </p>
+            <button className="btn btn-ghost" onClick={handleRefreshCode} style={{ marginTop: '0.75rem' }}>
+              🔄 Reset & Generate New Pairing Code
             </button>
           </div>
-        )}
+        ) : null}
+      </div>
+
+      {/* All-in-One Quick Start */}
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem', border: '1px solid rgba(99, 102, 241, 0.4)', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(34, 211, 238, 0.05) 100%)' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>⚡</span> Single Command Quick Start (All-in-One)
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          Run the full stack (Node.js Backend + Next.js Frontend + UDP Server) simultaneously with a single command from the project root:
+        </p>
+
+        <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: 'var(--radius-sm)', padding: '1.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--accent-cyan)', marginBottom: '1rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}># In the root directory (CN-MINI-PROJ):</p>
+          <code style={{ fontSize: '1rem', fontWeight: 700, color: '#22d3ee' }}>npm start</code>
+          <p style={{ color: 'var(--text-muted)', marginTop: '0.75rem', marginBottom: '0.25rem' }}>Or on Windows, simply double-click:</p>
+          <code style={{ color: '#a78bfa' }}>start.bat</code>
+        </div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          💡 This automatically launches the WebSocket relay, UDP test server (port 5005), and dashboard (port 3000) all together.
+        </p>
       </div>
 
       {/* How It Works */}
       <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
-          How to Run Live Measurements
+          Step-by-Step Setup Guide
         </h2>
 
         <div className="setup-steps">
@@ -122,26 +141,12 @@ export default function SetupPage() {
           <div className="setup-step">
             <div className="step-number">1</div>
             <div className="step-content" style={{ flex: 1 }}>
-              <h3>Clone the Repository</h3>
+              <h3>Start All Services</h3>
               <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
-                <code>git clone https://github.com/saileshl/CN-MINI-PROJ.git</code><br />
-                <code>cd CN-MINI-PROJ</code>
-              </div>
-            </div>
-          </div>
-
-          {/* Step 2 */}
-          <div className="setup-step">
-            <div className="step-number">2</div>
-            <div className="step-content">
-              <h3>Start the Backend Server</h3>
-              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
-                <code>cd backend</code><br />
-                <code>npm install</code><br />
                 <code>npm start</code>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-                This starts the WebSocket relay + UDP test server on port 4000/5005.
+                Starts the backend server (port 4000), UDP echo server (port 5005), and frontend (port 3000).
               </p>
             </div>
           </div>
@@ -151,21 +156,23 @@ export default function SetupPage() {
             <div className="step-number">3</div>
             <div className="step-content" style={{ flex: 1 }}>
               <h3>Get a Pairing Code</h3>
-              {backendOnline && session?.pairingCode && !codeExpired ? (
+              {mounted && backendOnline && session?.pairingCode && !codeExpired ? (
                 <div>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
                     Your pairing code (valid for 5 minutes):
                   </p>
-                  <div className="pairing-code">{session.pairingCode}</div>
+                  <div className="pairing-code" suppressHydrationWarning>{session.pairingCode}</div>
                 </div>
               ) : (
                 <div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {backendOnline === false
-                      ? 'Start the backend server first, then open http://localhost:3000/setup to get a pairing code.'
-                      : codeExpired
-                        ? '⏰ Code expired.'
-                        : 'Waiting for backend connection...'}
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }} suppressHydrationWarning>
+                    {!mounted || backendOnline === null
+                      ? 'Loading pairing code...'
+                      : backendOnline === false
+                        ? 'Start the backend server first, then open http://localhost:3000/setup to get a pairing code.'
+                        : codeExpired
+                          ? '⏰ Code expired.'
+                          : 'Waiting for backend connection...'}
                   </p>
                   {backendOnline && (
                     <button className="btn btn-primary" onClick={handleRefreshCode} style={{ marginTop: '0.5rem' }}>
@@ -195,7 +202,7 @@ export default function SetupPage() {
               <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
                 <code>cd agent</code><br />
                 <code>{activeTab === 'mac' ? 'pip3' : 'pip'} install -r requirements.txt</code><br />
-                <code>{activeTab === 'windows' ? 'python' : 'python3'} network_agent.py --code {session?.pairingCode || 'XXXXXX'}</code>
+                <code suppressHydrationWarning>{activeTab === 'windows' ? 'python' : 'python3'} network_agent.py --code {mounted ? (session?.pairingCode || 'XXXXXX') : 'XXXXXX'}</code>
                 <br /><br />
                 <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>After first pairing (no code needed):</p>
                 <code>{activeTab === 'windows' ? 'python' : 'python3'} network_agent.py</code>

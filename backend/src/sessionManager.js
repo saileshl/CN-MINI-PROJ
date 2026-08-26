@@ -14,7 +14,12 @@ class SessionManager {
     this.pairingCodes = new Map();      // code -> sessionId
     this.agentTokens = new Map();       // token -> { agentId, sessionId }
     this.agentSessions = new Map();     // agentId -> sessionId
+    this.revokedTokens = new Set();     // Set of revoked token strings
     this.codeExpiry = options.codeExpiry || 5 * 60 * 1000; // 5 min default
+
+    this.activeAgentWs = null;
+    this.activeAgentId = null;
+    this.activeAgentToken = null;
 
     // Periodic cleanup of expired pairing codes (not agent tokens)
     this._cleanupInterval = setInterval(() => this.cleanExpiredPairingCodes(), 60_000);
@@ -36,6 +41,7 @@ class SessionManager {
       agentId: null,
       agentToken: null,
       dashboardWs: null,
+      dashboardSockets: new Set(),
       agentWs: null,
       paired: false,
       testState: 'idle',     // idle | running | stopped
@@ -52,7 +58,8 @@ class SessionManager {
   // First-Time Agent Pairing (code-based)
   // ----------------------------------------------------------
   pairAgent(pairingCode, agentWs) {
-    const sessionId = this.pairingCodes.get(pairingCode);
+    const normalizedCode = (pairingCode || '').trim().toUpperCase();
+    const sessionId = this.pairingCodes.get(normalizedCode);
     if (!sessionId) {
       return { success: false, error: 'Invalid or expired pairing code' };
     }
@@ -63,13 +70,18 @@ class SessionManager {
     }
 
     if (Date.now() > session.pairingExpiry) {
-      this.pairingCodes.delete(pairingCode);
+      this.pairingCodes.delete(normalizedCode);
       return { success: false, error: 'Pairing code has expired' };
     }
 
     // Generate persistent agent identity
     const agentId = uuidv4();
     const agentToken = crypto.randomBytes(32).toString('hex');
+
+    // Store active agent
+    this.activeAgentWs = agentWs;
+    this.activeAgentId = agentId;
+    this.activeAgentToken = agentToken;
 
     // Store mappings
     session.agentId = agentId;
@@ -81,7 +93,7 @@ class SessionManager {
     this.agentSessions.set(agentId, sessionId);
 
     // Clean up used pairing code
-    this.pairingCodes.delete(pairingCode);
+    this.pairingCodes.delete(normalizedCode);
 
     // Notify dashboard
     this._notifyDashboard(sessionId, {
@@ -97,18 +109,25 @@ class SessionManager {
   // Persistent Agent Authentication (token-based reconnect)
   // ----------------------------------------------------------
   authenticateAgent(agentToken, agentWs) {
+    if (this.revokedTokens.has(agentToken)) {
+      return { success: false, error: 'Invalid or revoked agent token' };
+    }
+
     const tokenData = this.agentTokens.get(agentToken);
     if (!tokenData) {
       return { success: false, error: 'Invalid or revoked agent token' };
     }
 
     const { agentId, sessionId } = tokenData;
-    const session = this.sessions.get(sessionId);
+    let session = this.sessions.get(sessionId);
+
+    this.activeAgentWs = agentWs;
+    this.activeAgentId = agentId;
+    this.activeAgentToken = agentToken;
 
     if (!session) {
-      // Session may have been cleaned up; create a fresh session for this agent
       const newSessionId = uuidv4();
-      const newSession = {
+      session = {
         sessionId: newSessionId,
         pairingCode: null,
         createdAt: Date.now(),
@@ -116,29 +135,32 @@ class SessionManager {
         agentId,
         agentToken,
         dashboardWs: null,
+        dashboardSockets: new Set(),
         agentWs: agentWs,
         paired: true,
         testState: 'idle',
         experimentId: null,
       };
-      this.sessions.set(newSessionId, newSession);
+      this.sessions.set(newSessionId, session);
       this.agentTokens.set(agentToken, { agentId, sessionId: newSessionId });
       this.agentSessions.set(agentId, newSessionId);
 
-      return { success: true, agentId, sessionId: newSessionId, newSession: true };
+      return { success: true, agentId, agentToken, sessionId: newSessionId, newSession: true };
     }
 
     // Re-associate agent with existing session
     session.agentWs = agentWs;
+    session.agentId = agentId;
+    session.agentToken = agentToken;
     session.paired = true;
 
-    this._notifyDashboard(sessionId, {
+    this._notifyDashboard(session.sessionId, {
       type: 'agent_status',
       status: 'connected',
       agentId,
     });
 
-    return { success: true, agentId, sessionId, newSession: false };
+    return { success: true, agentId, agentToken, sessionId: session.sessionId, newSession: false };
   }
 
   // ----------------------------------------------------------
@@ -147,17 +169,25 @@ class SessionManager {
   revokeAgent(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return { success: false, error: 'Session not found' };
-    if (!session.agentToken) return { success: false, error: 'No agent paired' };
+    if (!session.agentToken && !this.activeAgentToken) return { success: false, error: 'No agent paired' };
 
-    // Remove token
-    this.agentTokens.delete(session.agentToken);
-    this.agentSessions.delete(session.agentId);
+    const token = session.agentToken || this.activeAgentToken;
+    this.revokedTokens.add(token);
+    this.agentTokens.delete(token);
+    if (session.agentId) this.agentSessions.delete(session.agentId);
+    if (this.activeAgentId) this.agentSessions.delete(this.activeAgentId);
 
     // Close agent WS if connected
     if (session.agentWs && session.agentWs.readyState === 1) {
-      session.agentWs.send(JSON.stringify({ type: 'revoked', message: 'Agent credential has been revoked' }));
-      session.agentWs.close(4001, 'Token revoked');
+      try {
+        session.agentWs.send(JSON.stringify({ type: 'revoked', message: 'Agent credential has been revoked' }));
+        session.agentWs.close(4001, 'Token revoked');
+      } catch {}
     }
+
+    this.activeAgentWs = null;
+    this.activeAgentId = null;
+    this.activeAgentToken = null;
 
     session.agentId = null;
     session.agentToken = null;
@@ -177,19 +207,46 @@ class SessionManager {
   // Dashboard Connection
   // ----------------------------------------------------------
   connectDashboard(sessionId, dashboardWs) {
-    const session = this.sessions.get(sessionId);
-    if (!session) return { success: false, error: 'Session not found' };
+    let session = this.sessions.get(sessionId);
+    if (!session) {
+      const pairingCode = this._generatePairingCode();
+      session = {
+        sessionId,
+        pairingCode,
+        createdAt: Date.now(),
+        pairingExpiry: Date.now() + this.codeExpiry,
+        agentId: this.activeAgentId || null,
+        agentToken: this.activeAgentToken || null,
+        dashboardWs,
+        dashboardSockets: new Set([dashboardWs]),
+        agentWs: this.activeAgentWs || null,
+        paired: !!(this.activeAgentWs && this.activeAgentWs.readyState === 1),
+        testState: 'idle',
+        experimentId: null,
+      };
+      this.sessions.set(sessionId, session);
+      this.pairingCodes.set(pairingCode, sessionId);
+    } else {
+      if (!session.dashboardSockets) session.dashboardSockets = new Set();
+      session.dashboardSockets.add(dashboardWs);
+      session.dashboardWs = dashboardWs;
+      if (this.activeAgentWs && this.activeAgentWs.readyState === 1 && !session.agentWs) {
+        session.agentWs = this.activeAgentWs;
+        session.agentId = this.activeAgentId;
+        session.agentToken = this.activeAgentToken;
+        session.paired = true;
+      }
+    }
 
-    session.dashboardWs = dashboardWs;
-
-    // Send current agent status
-    const status = session.paired && session.agentWs && session.agentWs.readyState === 1
-      ? 'connected' : 'disconnected';
+    const isConnected = !!(session.paired && session.agentWs && session.agentWs.readyState === 1) ||
+                        !!(this.activeAgentWs && this.activeAgentWs.readyState === 1);
+    const status = isConnected ? 'connected' : 'disconnected';
 
     dashboardWs.send(JSON.stringify({
       type: 'agent_status',
       status,
-      agentId: session.agentId,
+      agentId: session.agentId || this.activeAgentId,
+      pairingCode: session.pairingCode,
     }));
 
     return { success: true, sessionId };
@@ -199,10 +256,12 @@ class SessionManager {
   // Agent Disconnect Detection
   // ----------------------------------------------------------
   handleAgentDisconnect(agentWs) {
+    if (this.activeAgentWs === agentWs) {
+      this.activeAgentWs = null;
+    }
     for (const [sessionId, session] of this.sessions) {
       if (session.agentWs === agentWs) {
         session.agentWs = null;
-        // Do NOT clear paired/agentId/agentToken — agent can reconnect
         this._notifyDashboard(sessionId, {
           type: 'agent_status',
           status: 'disconnected',
@@ -220,8 +279,11 @@ class SessionManager {
   // ----------------------------------------------------------
   handleDashboardDisconnect(dashboardWs) {
     for (const [sessionId, session] of this.sessions) {
+      if (session.dashboardSockets) {
+        session.dashboardSockets.delete(dashboardWs);
+      }
       if (session.dashboardWs === dashboardWs) {
-        session.dashboardWs = null;
+        session.dashboardWs = session.dashboardSockets ? session.dashboardSockets.values().next().value || null : null;
         return sessionId;
       }
     }
@@ -233,22 +295,42 @@ class SessionManager {
   // ----------------------------------------------------------
   routeToAgent(sessionId, message) {
     const session = this.sessions.get(sessionId);
-    if (!session) return { success: false, error: 'Session not found' };
-    if (!session.agentWs || session.agentWs.readyState !== 1) {
-      return { success: false, error: 'Agent not connected' };
+    if (session && session.agentWs && session.agentWs.readyState === 1) {
+      try {
+        session.agentWs.send(JSON.stringify(message));
+        return { success: true };
+      } catch (err) {
+        console.error('[WS] Failed to send to agent:', err.message);
+      }
     }
-    session.agentWs.send(JSON.stringify(message));
-    return { success: true };
+
+    // Fallback if session has no direct agentWs but an active agent is connected
+    if (this.activeAgentWs && this.activeAgentWs.readyState === 1) {
+      try {
+        this.activeAgentWs.send(JSON.stringify(message));
+        return { success: true };
+      } catch (err) {
+        console.error('[WS] Fallback send to active agent failed:', err.message);
+      }
+    }
+
+    return { success: false, error: 'Agent not connected' };
   }
 
   routeToDashboard(agentWs, message) {
+    let delivered = false;
     for (const [sessionId, session] of this.sessions) {
       if (session.agentWs === agentWs) {
         this._notifyDashboard(sessionId, message);
-        return { success: true, sessionId };
+        delivered = true;
       }
     }
-    return { success: false, error: 'No session found for this agent' };
+
+    if (!delivered) {
+      this._broadcastToAllDashboards(message);
+    }
+
+    return { success: true };
   }
 
   // ----------------------------------------------------------
@@ -257,11 +339,15 @@ class SessionManager {
   getSession(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
+    const isConnected = !!(session.paired && session.agentWs && session.agentWs.readyState === 1) ||
+                        !!(this.activeAgentWs && this.activeAgentWs.readyState === 1);
     return {
       sessionId: session.sessionId,
-      paired: session.paired,
-      agentConnected: !!(session.agentWs && session.agentWs.readyState === 1),
-      agentId: session.agentId,
+      pairingCode: session.pairingCode,
+      expiresAt: session.pairingExpiry,
+      paired: isConnected || session.paired,
+      agentConnected: isConnected,
+      agentId: session.agentId || this.activeAgentId,
       testState: session.testState,
       experimentId: session.experimentId,
     };
@@ -292,28 +378,51 @@ class SessionManager {
     this.pairingCodes.clear();
     this.agentTokens.clear();
     this.agentSessions.clear();
+    this.activeAgentWs = null;
   }
 
   // ----------------------------------------------------------
   // Internal Helpers
   // ----------------------------------------------------------
   _generatePairingCode() {
-    // 6-char alphanumeric, uppercase
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
     const bytes = crypto.randomBytes(6);
     for (let i = 0; i < 6; i++) {
       code += chars[bytes[i] % chars.length];
     }
-    // Ensure uniqueness
     if (this.pairingCodes.has(code)) return this._generatePairingCode();
     return code;
   }
 
+  _broadcastToAllDashboards(message) {
+    const payload = JSON.stringify(message);
+    for (const session of this.sessions.values()) {
+      if (session.dashboardSockets && session.dashboardSockets.size > 0) {
+        for (const ws of session.dashboardSockets) {
+          if (ws && ws.readyState === 1) {
+            try { ws.send(payload); } catch {}
+          }
+        }
+      } else if (session.dashboardWs && session.dashboardWs.readyState === 1) {
+        try { session.dashboardWs.send(payload); } catch {}
+      }
+    }
+  }
+
   _notifyDashboard(sessionId, message) {
     const session = this.sessions.get(sessionId);
-    if (session && session.dashboardWs && session.dashboardWs.readyState === 1) {
-      session.dashboardWs.send(JSON.stringify(message));
+    if (session) {
+      const payload = JSON.stringify(message);
+      if (session.dashboardSockets && session.dashboardSockets.size > 0) {
+        for (const ws of session.dashboardSockets) {
+          if (ws && ws.readyState === 1) {
+            try { ws.send(payload); } catch {}
+          }
+        }
+      } else if (session.dashboardWs && session.dashboardWs.readyState === 1) {
+        try { session.dashboardWs.send(payload); } catch {}
+      }
     }
   }
 }

@@ -31,12 +31,13 @@ interface Metrics {
 }
 
 export default function DashboardPage() {
-  const { session, wsUrl } = useSession();
+  const { session, agentConnected, connectionState, backendOnline, send, subscribe } = useSession();
   const experiment = useExperiment();
+  const experimentRef = useRef(experiment);
+  useEffect(() => { experimentRef.current = experiment; }, [experiment]);
 
   // State
-  const [mode, setMode] = useState<'detecting' | 'live' | 'demo'>('detecting');
-  const [agentConnected, setAgentConnected] = useState(false);
+  const mode = backendOnline === false ? 'demo' : backendOnline === true ? 'live' : 'detecting';
   const [testRunning, setTestRunning] = useState(false);
   const [mitigationEnabled, setMitigationEnabled] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -54,76 +55,57 @@ export default function DashboardPage() {
   const rttCanvasRef = useRef<HTMLCanvasElement>(null);
   const varCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Detect if backend is reachable
+  // Subscribe to live WebSocket messages from the single SessionProvider
   useEffect(() => {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
-
-    fetch(`${backendUrl}/api/health`, { signal: controller.signal })
-      .then(res => {
-        clearTimeout(timer);
-        if (res.ok) setMode('live');
-        else setMode('demo');
-      })
-      .catch(() => {
-        clearTimeout(timer);
-        setMode('demo');
-      });
-  }, []);
-
-  const onMessage = useCallback((msg: WSMessage) => {
-    switch (msg.type) {
-      case 'agent_status':
-        setAgentConnected(msg.status === 'connected');
-        break;
-
-      case 'measurement': {
-        const batch = msg.batch as Array<Record<string, unknown>>;
-        const newRtts: number[] = [];
-        batch?.forEach((pkt) => {
-          if (pkt.rtt !== null && pkt.rtt !== undefined) newRtts.push(pkt.rtt as number);
-        });
-        const batchMetrics = msg.batchMetrics as Metrics;
-        const newVars: number[] = [];
-        if (batchMetrics?.avg_rtt_variation !== undefined) newVars.push(batchMetrics.avg_rtt_variation);
-        setRttHistory(prev => [...prev, ...newRtts].slice(-200));
-        setVariationHistory(prev => [...prev, ...newVars].slice(-200));
-        setProgress((msg.progress as number) || 0);
-        if (msg.bufferStats) setMetrics(prev => ({ ...prev, buffer_stats: msg.bufferStats as Metrics['buffer_stats'] }));
-        break;
-      }
-
-      case 'test_complete': {
-        const m = msg.metrics as Metrics;
-        setMetrics(m);
-        setTestRunning(false);
-        setProgress(1);
-        saveTestResult({ id: Date.now().toString(), timestamp: Date.now(), metrics: m as Record<string, unknown>, mitigationEnabled: msg.mitigationEnabled as boolean });
-        break;
-      }
-
-      case 'mitigation_status':
-        setMitigationEnabled(msg.enabled as boolean);
-        break;
-
-      case 'experiment_created':
-      case 'experiment_results':
-        experiment.handleExperimentMessage(msg as Record<string, unknown>);
-        if (msg.type === 'experiment_results' && msg.testPhase === 'B') {
-          saveExperiment({
-            id: Date.now().toString(), experimentId: experiment.experimentId || '', timestamp: Date.now(),
-            config: experiment.config as unknown as Record<string, unknown> || {},
-            testAResults: experiment.testAResults, testBResults: msg.results as Record<string, unknown>,
+    const unsubscribe = subscribe((msg: WSMessage) => {
+      switch (msg.type) {
+        case 'measurement': {
+          const batch = msg.batch as Array<Record<string, unknown>>;
+          const newRtts: number[] = [];
+          batch?.forEach((pkt) => {
+            if (pkt.rtt !== null && pkt.rtt !== undefined) newRtts.push(pkt.rtt as number);
           });
+          const batchMetrics = msg.batchMetrics as Metrics;
+          const newVars: number[] = [];
+          if (batchMetrics?.avg_rtt_variation !== undefined) newVars.push(batchMetrics.avg_rtt_variation);
+          setRttHistory(prev => [...prev, ...newRtts].slice(-200));
+          setVariationHistory(prev => [...prev, ...newVars].slice(-200));
+          setProgress((msg.progress as number) || 0);
+          if (msg.bufferStats) setMetrics(prev => ({ ...prev, buffer_stats: msg.bufferStats as Metrics['buffer_stats'] }));
+          break;
         }
-        break;
-    }
-  }, [experiment]);
 
-  const { connectionState, send } = useWebSocket({
-    url: wsUrl, sessionId: mode === 'live' ? (session?.sessionId || null) : null, onMessage,
-  });
+        case 'test_complete': {
+          const m = msg.metrics as Metrics;
+          setMetrics(m);
+          setTestRunning(false);
+          setProgress(1);
+          saveTestResult({ id: Date.now().toString(), timestamp: Date.now(), metrics: m as Record<string, unknown>, mitigationEnabled: msg.mitigationEnabled as boolean });
+          break;
+        }
+
+        case 'mitigation_status':
+          setMitigationEnabled(msg.enabled as boolean);
+          break;
+
+        case 'experiment_created':
+        case 'experiment_results': {
+          const exp = experimentRef.current;
+          exp.handleExperimentMessage(msg as Record<string, unknown>);
+          if (msg.type === 'experiment_results' && msg.testPhase === 'B') {
+            saveExperiment({
+              id: Date.now().toString(), experimentId: exp.experimentId || '', timestamp: Date.now(),
+              config: exp.config as unknown as Record<string, unknown> || {},
+              testAResults: exp.testAResults, testBResults: msg.results as Record<string, unknown>,
+            });
+          }
+          break;
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [subscribe]);
 
   // Draw charts
   useEffect(() => { drawChart(rttCanvasRef.current, rttHistory, '#6366f1', '#22d3ee', 'RTT (ms)'); }, [rttHistory]);
@@ -268,13 +250,13 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              <div className="badge badge-info">
-                <span className={`status-dot ${connectionState === 'connected' ? 'connected' : 'disconnected'}`} />
+              <div className={`badge ${connectionState === 'connected' ? 'badge-success' : connectionState === 'connecting' ? 'badge-info' : 'badge-warning'}`}>
+                <span className={`status-dot ${connectionState === 'connected' ? 'connected' : connectionState === 'connecting' ? 'connecting' : 'disconnected'}`} />
                 WS: {connectionState}
               </div>
-              <div className={`badge ${agentConnected ? 'badge-success' : 'badge-danger'}`}>
-                <span className={`status-dot ${agentConnected ? 'connected' : 'disconnected'}`} />
-                Agent: {agentConnected ? 'Connected' : 'Not Connected'}
+              <div className={`badge ${agentConnected ? 'badge-success' : connectionState === 'connecting' ? 'badge-info' : 'badge-danger'}`}>
+                <span className={`status-dot ${agentConnected ? 'connected' : connectionState === 'connecting' ? 'connecting' : 'disconnected'}`} />
+                Agent: {agentConnected ? 'Connected' : connectionState === 'connecting' ? 'Connecting...' : 'Not Connected'}
               </div>
             </>
           )}

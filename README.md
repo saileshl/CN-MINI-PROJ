@@ -147,6 +147,26 @@ cp config.example.json config.json
 
 ## Running Locally
 
+### ⚡ Option A: Single Command Quick Start (Recommended)
+
+From the project root (`CN-MINI-PROJ`), run:
+```bash
+npm start
+```
+*Or on Windows, simply double-click:* **`start.bat`**
+
+This starts both the **Node.js Backend (port 4000 + UDP 5005)** and the **Next.js Frontend (port 3000)** simultaneously with unified output!
+
+Then in a second terminal, run your Python agent:
+```bash
+cd agent
+python network_agent.py
+```
+
+---
+
+### 🛠️ Option B: Running Services Separately
+
 **Terminal 1 — Backend + UDP Server:**
 ```bash
 cd backend

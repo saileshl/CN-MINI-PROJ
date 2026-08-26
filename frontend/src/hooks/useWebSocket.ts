@@ -1,7 +1,3 @@
-/**
- * WebSocket hook — auto-reconnect, message dispatch, connection state.
- * Connects to backend at /ws/dashboard?session=SESSION_ID
- */
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
@@ -32,64 +28,88 @@ export function useWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectCount = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onMessageRef = useRef(onMessage);
+  const isExplicitClose = useRef(false);
 
-  const connect = useCallback(() => {
-    if (!sessionId || !url) return;
-
-    const wsUrl = `${url}/ws/dashboard?session=${sessionId}`;
-    setConnectionState('connecting');
-
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        setConnectionState('connected');
-        reconnectCount.current = 0;
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          onMessage?.(data);
-        } catch {
-          // ignore parse errors
-        }
-      };
-
-      ws.onclose = () => {
-        setConnectionState('disconnected');
-        wsRef.current = null;
-
-        // Auto-reconnect
-        if (reconnectCount.current < maxReconnectAttempts) {
-          reconnectCount.current++;
-          reconnectTimer.current = setTimeout(connect, reconnectInterval);
-        }
-      };
-
-      ws.onerror = () => {
-        setConnectionState('error');
-      };
-    } catch {
-      setConnectionState('error');
-    }
-  }, [url, sessionId, onMessage, reconnectInterval, maxReconnectAttempts]);
-
-  // Connect when sessionId is available
+  // Keep onMessageRef synchronized with latest callback without causing reconnects
   useEffect(() => {
-    if (sessionId) {
-      connect();
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  useEffect(() => {
+    if (!sessionId || !url) {
+      setConnectionState('disconnected');
+      return;
     }
+
+    isExplicitClose.current = false;
+    reconnectCount.current = 0;
+
+    function connect() {
+      if (!sessionId || !url || isExplicitClose.current) return;
+
+      const wsUrl = `${url}/ws/dashboard?session=${sessionId}`;
+      setConnectionState('connecting');
+
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (isExplicitClose.current) {
+            ws.close();
+            return;
+          }
+          setConnectionState('connected');
+          reconnectCount.current = 0;
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            onMessageRef.current?.(data);
+          } catch {
+            // ignore parse errors
+          }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          if (!isExplicitClose.current) {
+            setConnectionState('disconnected');
+            if (reconnectCount.current < maxReconnectAttempts) {
+              reconnectCount.current++;
+              reconnectTimer.current = setTimeout(connect, reconnectInterval);
+            }
+          }
+        };
+
+        ws.onerror = () => {
+          if (!isExplicitClose.current) {
+            setConnectionState('error');
+          }
+        };
+      } catch {
+        if (!isExplicitClose.current) {
+          setConnectionState('error');
+        }
+      }
+    }
+
+    connect();
 
     return () => {
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+      isExplicitClose.current = true;
+      if (reconnectTimer.current) {
+        clearTimeout(reconnectTimer.current);
+        reconnectTimer.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [sessionId, connect]);
+  }, [url, sessionId, reconnectInterval, maxReconnectAttempts]);
 
   const send = useCallback((message: WSMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
