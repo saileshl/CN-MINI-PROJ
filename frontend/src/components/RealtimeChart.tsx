@@ -171,7 +171,7 @@ export default function RealtimeChart({
         ctx.fillStyle = '#8E929A';
         ctx.font = '500 11px "Plus Jakarta Sans", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`STANDBY · READY TO STREAM ${unit.toUpperCase()}`, w / 2, h / 2 - 2);
+        ctx.fillText(`STANDBY · CLICK "START TEST" TO STREAM ${unit.toUpperCase()}`, w / 2, h / 2 - 2);
 
         ctx.restore();
         animFrameRef.current = requestAnimationFrame(render);

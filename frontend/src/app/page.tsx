@@ -59,26 +59,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const unsubscribe = subscribe((msg: WSMessage) => {
       switch (msg.type) {
-        case 'idle_ping': {
-          const rtt = msg.rtt as number;
-          if (rtt !== null && rtt !== undefined) {
-            setRttHistory(prev => {
-              if (prev.length > 0) {
-                const diff = Math.abs(rtt - prev[prev.length - 1]);
-                setVariationHistory(vPrev => [...vPrev, diff].slice(-100));
-                setMetrics(mPrev => ({ ...mPrev, avg_rtt_variation: diff }));
-              }
-              return [...prev, rtt].slice(-100);
-            });
-            setMetrics(prev => ({
-              ...prev,
-              avg_rtt: rtt,
-              min_rtt: prev.min_rtt !== undefined ? Math.min(prev.min_rtt, rtt) : rtt,
-              max_rtt: prev.max_rtt !== undefined ? Math.max(prev.max_rtt, rtt) : rtt,
-            }));
-          }
+        case 'idle_ping':
+          // Keep agent alive silently without polluting the standby graph
           break;
-        }
 
         case 'measurement': {
           const batch = msg.batch as Array<Record<string, unknown>>;

@@ -21,8 +21,10 @@ export default function SetupPage() {
   const [codeExpired, setCodeExpired] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [copiedCommand, setCopiedCommand] = useState(false);
-  const [copiedNpm, setCopiedNpm] = useState(false);
+  const [copiedClone, setCopiedClone] = useState(false);
+  const [copiedStart, setCopiedStart] = useState(false);
+  const [copiedPip, setCopiedPip] = useState(false);
+  const [copiedAgent, setCopiedAgent] = useState(false);
   const [customBackend, setCustomBackend] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -55,32 +57,36 @@ export default function SetupPage() {
 
   const isPaired = sessionStatus?.paired || (agentConnected && !!agentId);
   const currentPairingCode = session?.pairingCode || '9VDCLT';
-  const agentCommand = `${activeTab === 'windows' ? 'python' : 'python3'} network_agent.py --code ${currentPairingCode}`;
+  const pyCmd = activeTab === 'mac' ? 'python3' : 'python';
+  const pipCmd = activeTab === 'mac' ? 'pip3' : 'pip';
+  const agentPairCommand = `${pyCmd} network_agent.py --code ${currentPairingCode}`;
+  const agentRunCommand = `${pyCmd} network_agent.py`;
 
   return (
     <div className="section animate-in">
+      {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
         <h1 style={{ fontSize: '2.25rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: '0.4rem', color: 'var(--text-primary)' }}>
-          Agent Setup & Pairing
+          Complete A-to-Z Agent Setup
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 580, margin: '0 auto' }}>
-          Connect your local Python UDP agent to measure hardware-level network jitter and latency in real time.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: 620, margin: '0 auto' }}>
+          Follow these 5 simple steps to clone the repository, launch the backend relay, and stream live UDP measurements.
         </p>
       </div>
 
-      {/* Agent & Backend Connection Status */}
-      <div className="glass-card" style={{ padding: '1.75rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+      {/* Live Agent Connection Status Bar */}
+      <div className="glass-card" style={{ padding: '1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
           <span
             className={`status-dot ${agentConnected ? 'connected' : isPaired ? 'connecting' : 'disconnected'}`}
             style={{ width: 8, height: 8 }}
           />
           <span style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             {agentConnected
-              ? 'Python Agent Connected & Streaming'
+              ? 'Python Agent Connected & Ready to Stream'
               : isPaired
                 ? 'Agent Paired (Awaiting process startup)'
-                : 'Agent Not Connected'}
+                : 'Agent Not Connected · Follow Steps Below'}
           </span>
         </div>
 
@@ -90,24 +96,20 @@ export default function SetupPage() {
           </p>
         )}
 
-        {agentConnected ? (
-          <div style={{ marginTop: '1rem' }}>
-            <p style={{ color: 'var(--accent-sage)', fontWeight: 500, fontSize: '0.85rem', marginBottom: '0.85rem' }}>
-              Your Python agent is actively streaming measurements to this dashboard.
+        {agentConnected && (
+          <div style={{ marginTop: '0.85rem' }}>
+            <p style={{ color: 'var(--accent-green)', fontWeight: 500, fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+              ✓ Your Python agent is active! Go to the Dashboard to run tests.
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-              <Link href="/" className="btn btn-primary">
-                Go to Live Dashboard
+              <Link href="/" className="btn btn-start">
+                ⚡ Go to Live Dashboard
               </Link>
               <button className="btn btn-ghost" onClick={revokeAgent}>
                 Revoke & Re-pair
               </button>
             </div>
           </div>
-        ) : (
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.825rem', maxWidth: 480, margin: '0.4rem auto 0 auto' }}>
-            Use the 6-character pairing code below to link your local Python agent to this session.
-          </p>
         )}
       </div>
 
@@ -116,14 +118,14 @@ export default function SetupPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
           <div>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-              Session Pairing Code
+              🔑 Your Session Pairing Code
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', margin: '0.2rem 0 0 0' }}>
-              Enter this code when launching the Python agent
+              Use this unique code in Step 4 to link your local agent
             </p>
           </div>
           <button className="btn btn-ghost" onClick={handleRefreshCode} style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}>
-            Refresh Code
+            🔄 Refresh Code
           </button>
         </div>
 
@@ -132,10 +134,10 @@ export default function SetupPage() {
             className="pairing-code"
             suppressHydrationWarning
             style={{
-              fontSize: '2rem',
-              fontWeight: 700,
+              fontSize: '2.25rem',
+              fontWeight: 800,
               letterSpacing: '0.25em',
-              padding: '0.65rem 1.75rem',
+              padding: '0.65rem 2rem',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--bg-inset)',
               border: '1px solid var(--border-strong)',
@@ -150,110 +152,145 @@ export default function SetupPage() {
             className="btn btn-primary"
             onClick={() => copyToClipboard(currentPairingCode, setCopiedCode)}
           >
-            {copiedCode ? 'Copied' : 'Copy Code'}
+            {copiedCode ? '✓ Copied' : '📋 Copy Code'}
           </button>
         </div>
 
         {codeExpired && (
-          <p style={{ color: 'var(--accent-rose)', fontSize: '0.75rem', textAlign: 'center' }}>
-            Code expired. Click <strong>Refresh Code</strong> to generate a new pairing key.
+          <p style={{ color: 'var(--accent-red)', fontSize: '0.75rem', textAlign: 'center' }}>
+            ⏰ Code expired. Click <strong>Refresh Code</strong> to generate a fresh pairing key.
           </p>
         )}
       </div>
 
-      {/* SINGLE COMMAND QUICK START */}
-      <div className="glass-card" style={{ padding: '1.75rem', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.35rem', color: 'var(--text-primary)' }}>
-          Single-Command All-in-One Start
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.825rem', marginBottom: '0.85rem' }}>
-          Launch the Backend Relay (port 4000) and UDP Echo Server (port 5005) with one command:
-        </p>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-inset)', borderRadius: 'var(--radius-sm)', padding: '0.85rem 1.1rem', fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: 'var(--accent-cream)', marginBottom: '0.5rem', border: '1px solid var(--border-subtle)' }}>
-          <code>npm start</code>
+      {/* OS PLATFORM SELECTOR TABS */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+        {(['windows', 'mac', 'linux'] as const).map((tab) => (
           <button
-            className="btn btn-ghost"
-            style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem' }}
-            onClick={() => copyToClipboard('npm start', setCopiedNpm)}
+            key={tab}
+            className={`btn ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', textTransform: 'capitalize' }}
+            onClick={() => setActiveTab(tab)}
           >
-            {copiedNpm ? 'Copied' : 'Copy'}
+            {tab === 'windows' ? '🪟 Windows Instructions' : tab === 'mac' ? '🍎 macOS Instructions' : '🐧 Linux Instructions'}
           </button>
-        </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-          On Windows, you can also double-click <code style={{ color: 'var(--text-secondary)' }}>start.bat</code> in the repository root.
-        </p>
+        ))}
       </div>
 
-      {/* STEP BY STEP GUIDE */}
-      <div className="glass-card" style={{ padding: '1.75rem', marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
-          Step-by-Step Instructions
-        </h2>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Step 1 */}
-          <div className="step-card">
-            <div className="step-number">1</div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Start Backend Services</h3>
-              <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)', margin: '0.2rem 0 0.4rem 0' }}>
-                Run from the repository root:
-              </p>
-              <div className="code-block" style={{ padding: '0.65rem 0.85rem' }}>
-                <code>npm start</code>
-              </div>
+      {/* A-TO-Z STEP-BY-STEP GUIDE */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* STEP 1: CLONE REPOSITORY */}
+        <div className="step-card">
+          <div className="step-number">1</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              Clone the Project Repository
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+              Open your terminal or PowerShell and clone the codebase:
+            </p>
+            <div className="code-block" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <code>git clone https://github.com/saileshl/CN-MINI-PROJ.git && cd CN-MINI-PROJ</code>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.725rem', marginLeft: '0.5rem' }}
+                onClick={() => copyToClipboard('git clone https://github.com/saileshl/CN-MINI-PROJ.git && cd CN-MINI-PROJ', setCopiedClone)}
+              >
+                {copiedClone ? '✓ Copied' : '📋 Copy'}
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Step 2 */}
-          <div className="step-card">
-            <div className="step-number">2</div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Run Python Agent</h3>
-              <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)', margin: '0.2rem 0 0.4rem 0' }}>
-                Open a new terminal in the <code>agent</code> directory:
-              </p>
-
-              <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.5rem' }}>
-                {(['windows', 'mac', 'linux'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    className={`btn ${activeTab === tab ? 'btn-secondary' : 'btn-ghost'}`}
-                    style={{ padding: '0.25rem 0.65rem', fontSize: '0.75rem', textTransform: 'capitalize' }}
-                    onClick={() => setActiveTab(tab)}
-                  >
-                    {tab === 'windows' ? 'Windows' : tab === 'mac' ? 'macOS' : 'Linux'}
-                  </button>
-                ))}
-              </div>
-
-              <div className="code-block" style={{ padding: '0.75rem 1rem' }}>
-                <code>cd agent</code><br />
-                <code>{activeTab === 'mac' ? 'pip3' : 'pip'} install -r requirements.txt</code><br />
-                <code suppressHydrationWarning>{agentCommand}</code>
-                <div style={{ marginTop: '0.5rem' }}>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: '0.725rem', padding: '0.25rem 0.55rem' }}
-                    onClick={() => copyToClipboard(agentCommand, setCopiedCommand)}
-                  >
-                    {copiedCommand ? 'Copied' : 'Copy Command'}
-                  </button>
-                </div>
-              </div>
+        {/* STEP 2: START BACKEND & UDP ECHO SERVER */}
+        <div className="step-card">
+          <div className="step-number">2</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              Start Backend Relay & UDP Impairment Server
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+              {activeTab === 'windows' ? (
+                <>On Windows, simply double-click <strong>start.bat</strong> in the repository root, or run:</>
+              ) : (
+                <>Install backend dependencies and start the WebSocket relay (Port 4000) and UDP Echo Server (Port 5005):</>
+              )}
+            </p>
+            <div className="code-block" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <code>npm install && npm start</code>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.725rem', marginLeft: '0.5rem' }}
+                onClick={() => copyToClipboard('npm install && npm start', setCopiedStart)}
+              >
+                {copiedStart ? '✓ Copied' : '📋 Copy'}
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Step 3 */}
-          <div className="step-card">
-            <div className="step-number">3</div>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>Stream Live Telemetry</h3>
-              <p style={{ fontSize: '0.775rem', color: 'var(--text-muted)', margin: '0.2rem 0 0.4rem 0' }}>
-                Once paired, navigate to the <Link href="/" style={{ color: 'var(--text-primary)', textDecoration: 'underline' }}>Dashboard</Link> and click <strong>Start Test</strong>.
-              </p>
+        {/* STEP 3: INSTALL PYTHON DEPENDENCIES */}
+        <div className="step-card">
+          <div className="step-number">3</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              Install Python Agent Dependencies
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+              Open a second terminal window, navigate into the <code>agent</code> folder, and install requirements:
+            </p>
+            <div className="code-block" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <code>cd agent && {pipCmd} install -r requirements.txt</code>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '0.25rem 0.6rem', fontSize: '0.725rem', marginLeft: '0.5rem' }}
+                onClick={() => copyToClipboard(`cd agent && ${pipCmd} install -r requirements.txt`, setCopiedPip)}
+              >
+                {copiedPip ? '✓ Copied' : '📋 Copy'}
+              </button>
             </div>
+          </div>
+        </div>
+
+        {/* STEP 4: LAUNCH AGENT WITH PAIRING CODE */}
+        <div className="step-card" style={{ borderColor: 'var(--border-strong)' }}>
+          <div className="step-number" style={{ background: 'var(--accent-cream)', color: 'var(--text-inverse)' }}>4</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              Launch the Agent (Paired to this Dashboard)
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.6rem' }}>
+              Run the agent with your session pairing code from above:
+            </p>
+            <div className="code-block" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <code suppressHydrationWarning>{agentPairCommand}</code>
+              <button
+                className="btn btn-start"
+                style={{ padding: '0.25rem 0.75rem', fontSize: '0.725rem', marginLeft: '0.5rem' }}
+                onClick={() => copyToClipboard(agentPairCommand, setCopiedAgent)}
+              >
+                {copiedAgent ? '✓ Copied Command' : '📋 Copy Command'}
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Credentials are saved automatically to <code>.agent_credentials.json</code>. For all future startups, simply run <code>{agentRunCommand}</code> without the <code>--code</code> flag.
+            </p>
+          </div>
+        </div>
+
+        {/* STEP 5: STREAM LIVE DATA ON DASHBOARD */}
+        <div className="step-card">
+          <div className="step-number">5</div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              Stream Real-Time Telemetry on the Dashboard
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+              Once the agent prints <code>[✓] Paired successfully!</code>, return to the Dashboard and click <strong>▶ Start Test</strong> to stream 200 UDP measurement packets live.
+            </p>
+            <Link href="/" className="btn btn-primary" style={{ display: 'inline-flex' }}>
+              ⚡ Open Live Dashboard
+            </Link>
           </div>
         </div>
       </div>
