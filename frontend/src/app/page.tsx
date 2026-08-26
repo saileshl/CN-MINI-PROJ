@@ -5,13 +5,8 @@ import { useSession } from '@/hooks/useSession';
 import { useWebSocket, WSMessage } from '@/hooks/useWebSocket';
 import { useExperiment } from '@/hooks/useExperiment';
 import { saveTestResult, saveExperiment } from '@/lib/storage';
+import { streamDemoTest, generateDemoExperiment, DemoPacket, DemoMetrics } from '@/lib/demo';
 import Link from 'next/link';
-
-interface MeasurementData {
-  rtt: number;
-  seq: number;
-  variation?: number;
-}
 
 interface Metrics {
   avg_rtt?: number;
@@ -40,14 +35,15 @@ export default function DashboardPage() {
   const experiment = useExperiment();
 
   // State
+  const [mode, setMode] = useState<'detecting' | 'live' | 'demo'>('detecting');
   const [agentConnected, setAgentConnected] = useState(false);
-  const [agentId, setAgentId] = useState<string | null>(null);
   const [testRunning, setTestRunning] = useState(false);
   const [mitigationEnabled, setMitigationEnabled] = useState(false);
   const [progress, setProgress] = useState(0);
   const [metrics, setMetrics] = useState<Metrics>({});
   const [rttHistory, setRttHistory] = useState<number[]>([]);
   const [variationHistory, setVariationHistory] = useState<number[]>([]);
+  const demoCancel = useRef<{ cancel: () => void } | null>(null);
 
   // Impairment controls
   const [baseDelay, setBaseDelay] = useState(30);
@@ -58,36 +54,43 @@ export default function DashboardPage() {
   const rttCanvasRef = useRef<HTMLCanvasElement>(null);
   const varCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Detect if backend is reachable
+  useEffect(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+
+    fetch(`${backendUrl}/api/health`, { signal: controller.signal })
+      .then(res => {
+        clearTimeout(timer);
+        if (res.ok) setMode('live');
+        else setMode('demo');
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        setMode('demo');
+      });
+  }, []);
+
   const onMessage = useCallback((msg: WSMessage) => {
     switch (msg.type) {
       case 'agent_status':
         setAgentConnected(msg.status === 'connected');
-        setAgentId(msg.agentId as string || null);
         break;
 
       case 'measurement': {
         const batch = msg.batch as Array<Record<string, unknown>>;
         const newRtts: number[] = [];
-        const newVars: number[] = [];
-
         batch?.forEach((pkt) => {
-          if (pkt.rtt !== null && pkt.rtt !== undefined) {
-            newRtts.push(pkt.rtt as number);
-          }
+          if (pkt.rtt !== null && pkt.rtt !== undefined) newRtts.push(pkt.rtt as number);
         });
-
         const batchMetrics = msg.batchMetrics as Metrics;
-        if (batchMetrics?.avg_rtt_variation !== undefined) {
-          newVars.push(batchMetrics.avg_rtt_variation);
-        }
-
+        const newVars: number[] = [];
+        if (batchMetrics?.avg_rtt_variation !== undefined) newVars.push(batchMetrics.avg_rtt_variation);
         setRttHistory(prev => [...prev, ...newRtts].slice(-200));
         setVariationHistory(prev => [...prev, ...newVars].slice(-200));
         setProgress((msg.progress as number) || 0);
-
-        if (msg.bufferStats) {
-          setMetrics(prev => ({ ...prev, buffer_stats: msg.bufferStats as Metrics['buffer_stats'] }));
-        }
+        if (msg.bufferStats) setMetrics(prev => ({ ...prev, buffer_stats: msg.bufferStats as Metrics['buffer_stats'] }));
         break;
       }
 
@@ -96,13 +99,7 @@ export default function DashboardPage() {
         setMetrics(m);
         setTestRunning(false);
         setProgress(1);
-
-        saveTestResult({
-          id: Date.now().toString(),
-          timestamp: Date.now(),
-          metrics: m as Record<string, unknown>,
-          mitigationEnabled: msg.mitigationEnabled as boolean,
-        });
+        saveTestResult({ id: Date.now().toString(), timestamp: Date.now(), metrics: m as Record<string, unknown>, mitigationEnabled: msg.mitigationEnabled as boolean });
         break;
       }
 
@@ -113,15 +110,11 @@ export default function DashboardPage() {
       case 'experiment_created':
       case 'experiment_results':
         experiment.handleExperimentMessage(msg as Record<string, unknown>);
-
         if (msg.type === 'experiment_results' && msg.testPhase === 'B') {
           saveExperiment({
-            id: Date.now().toString(),
-            experimentId: experiment.experimentId || '',
-            timestamp: Date.now(),
+            id: Date.now().toString(), experimentId: experiment.experimentId || '', timestamp: Date.now(),
             config: experiment.config as unknown as Record<string, unknown> || {},
-            testAResults: experiment.testAResults,
-            testBResults: msg.results as Record<string, unknown>,
+            testAResults: experiment.testAResults, testBResults: msg.results as Record<string, unknown>,
           });
         }
         break;
@@ -129,77 +122,129 @@ export default function DashboardPage() {
   }, [experiment]);
 
   const { connectionState, send } = useWebSocket({
-    url: wsUrl,
-    sessionId: session?.sessionId || null,
-    onMessage,
+    url: wsUrl, sessionId: mode === 'live' ? (session?.sessionId || null) : null, onMessage,
   });
 
   // Draw charts
-  useEffect(() => {
-    drawChart(rttCanvasRef.current, rttHistory, '#6366f1', '#22d3ee', 'RTT (ms)');
-  }, [rttHistory]);
+  useEffect(() => { drawChart(rttCanvasRef.current, rttHistory, '#6366f1', '#22d3ee', 'RTT (ms)'); }, [rttHistory]);
+  useEffect(() => { drawChart(varCanvasRef.current, variationHistory, '#10b981', '#f59e0b', 'Variation (ms)'); }, [variationHistory]);
 
-  useEffect(() => {
-    drawChart(varCanvasRef.current, variationHistory, '#10b981', '#f59e0b', 'Variation (ms)');
-  }, [variationHistory]);
-
-  // Actions
-  const handleStartTest = () => {
+  // ============ DEMO MODE ACTIONS ============
+  const handleDemoTest = () => {
     setTestRunning(true);
     setProgress(0);
     setRttHistory([]);
     setVariationHistory([]);
     setMetrics({});
+
+    const controller = streamDemoTest(
+      { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss, packetIntervalMs: 50 },
+      mitigationEnabled,
+      (batch, batchMetrics, prog) => {
+        const newRtts = batch.filter(p => p.rtt !== null).map(p => p.rtt as number);
+        setRttHistory(prev => [...prev, ...newRtts].slice(-200));
+        if (batchMetrics.avg_rtt_variation !== undefined) {
+          setVariationHistory(prev => [...prev, batchMetrics.avg_rtt_variation].slice(-200));
+        }
+        setProgress(prog);
+        if (batchMetrics.buffer_stats) setMetrics(prev => ({ ...prev, buffer_stats: batchMetrics.buffer_stats }));
+      },
+      (finalMetrics) => {
+        setMetrics(finalMetrics);
+        setTestRunning(false);
+        setProgress(1);
+        saveTestResult({ id: Date.now().toString(), timestamp: Date.now(), metrics: finalMetrics as unknown as Record<string, unknown>, mitigationEnabled });
+      },
+    );
+    demoCancel.current = controller;
+  };
+
+  const handleDemoExperiment = () => {
+    setTestRunning(true);
+    setProgress(0);
+    setRttHistory([]);
+    setVariationHistory([]);
+    setMetrics({});
+
+    const config = { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss, packetIntervalMs: 50 };
+    const { testA, testB } = generateDemoExperiment(config);
+
+    // Animate Test A
+    let step = 0;
+    const totalSteps = 40;
+    const animateA = setInterval(() => {
+      step++;
+      const end = Math.min(Math.floor((step / totalSteps) * testA.packets.length), testA.packets.length);
+      const slice = testA.packets.slice(0, end);
+      const rtts = slice.filter(p => p.rtt !== null).map(p => p.rtt as number);
+      setRttHistory(rtts.slice(-200));
+      setProgress(step / (totalSteps * 2));
+
+      if (step >= totalSteps) {
+        clearInterval(animateA);
+        setMetrics(testA.metrics);
+
+        // Save Test A results
+        const expId = `DEMO-EXP-${Date.now()}`;
+
+        // Animate Test B
+        let step2 = 0;
+        setTimeout(() => {
+          const animateB = setInterval(() => {
+            step2++;
+            const end2 = Math.min(Math.floor((step2 / totalSteps) * testB.packets.length), testB.packets.length);
+            const slice2 = testB.packets.slice(0, end2);
+            const rtts2 = slice2.filter(p => p.rtt !== null).map(p => p.rtt as number);
+            setRttHistory(rtts2.slice(-200));
+            setProgress(0.5 + step2 / (totalSteps * 2));
+
+            if (step2 >= totalSteps) {
+              clearInterval(animateB);
+              setMetrics(testB.metrics);
+              setTestRunning(false);
+              setProgress(1);
+
+              saveExperiment({
+                id: Date.now().toString(), experimentId: expId, timestamp: Date.now(),
+                config: config as unknown as Record<string, unknown>,
+                testAResults: testA.metrics as unknown as Record<string, unknown>,
+                testBResults: testB.metrics as unknown as Record<string, unknown>,
+              });
+            }
+          }, 100);
+        }, 800);
+      }
+    }, 100);
+  };
+
+  // ============ LIVE MODE ACTIONS ============
+  const handleStartTest = () => {
+    if (mode === 'demo') { handleDemoTest(); return; }
+    setTestRunning(true); setProgress(0); setRttHistory([]); setVariationHistory([]); setMetrics({});
     send({ type: 'start_test' });
   };
 
   const handleStopTest = () => {
-    send({ type: 'stop_test' });
-    setTestRunning(false);
+    if (mode === 'demo') { demoCancel.current?.cancel(); setTestRunning(false); return; }
+    send({ type: 'stop_test' }); setTestRunning(false);
   };
 
   const handleToggleMitigation = () => {
+    if (mode === 'demo') { setMitigationEnabled(!mitigationEnabled); return; }
     send({ type: mitigationEnabled ? 'disable_mitigation' : 'enable_mitigation' });
   };
 
   const handleConfigureImpairment = () => {
-    send({
-      type: 'configure_impairment',
-      config: {
-        baseDelayMs: baseDelay,
-        randomJitterMs: randomJitter,
-        packetLossPercent: packetLoss,
-      },
-    });
+    if (mode === 'live') send({ type: 'configure_impairment', config: { baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss } });
   };
 
-  const handleStartExperiment = async () => {
-    try {
-      setRttHistory([]);
-      setVariationHistory([]);
-      setMetrics({});
-      const exp = await experiment.startExperiment({
-        packetCount: 200,
-        baseDelayMs: baseDelay,
-        randomJitterMs: randomJitter,
-        packetLossPercent: packetLoss,
-      });
-      if (exp) {
-        send({
-          type: 'start_experiment',
-          config: {
-            packetCount: 200,
-            baseDelayMs: baseDelay,
-            randomJitterMs: randomJitter,
-            packetLossPercent: packetLoss,
-          },
-        });
-      }
-    } catch {
-      // error handled in hook
-    }
+  const handleStartExperiment = () => {
+    if (mode === 'demo') { handleDemoExperiment(); return; }
+    // Live experiment flow...
+    send({ type: 'start_experiment', config: { packetCount: 200, baseDelayMs: baseDelay, randomJitterMs: randomJitter, packetLossPercent: packetLoss } });
   };
 
+  const isDemo = mode === 'demo';
   const impairmentLocked = experiment.isRunning;
 
   return (
@@ -216,37 +261,45 @@ export default function DashboardPage() {
         </p>
 
         {/* Status Bar */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '1rem' }}>
-          <div className="badge badge-info">
-            <span className={`status-dot ${connectionState === 'connected' ? 'connected' : 'disconnected'}`} />
-            WS: {connectionState}
-          </div>
-          <div className={`badge ${agentConnected ? 'badge-success' : 'badge-danger'}`}>
-            <span className={`status-dot ${agentConnected ? 'connected' : 'disconnected'}`} />
-            Agent: {agentConnected ? 'Connected' : 'Not Connected'}
-          </div>
-          {mitigationEnabled && (
-            <div className="badge badge-warning">🛡️ Mitigation Active</div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+          {isDemo ? (
+            <div className="badge badge-warning" style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }}>
+              🎮 Demo Mode — Simulated Data (No Backend Connected)
+            </div>
+          ) : (
+            <>
+              <div className="badge badge-info">
+                <span className={`status-dot ${connectionState === 'connected' ? 'connected' : 'disconnected'}`} />
+                WS: {connectionState}
+              </div>
+              <div className={`badge ${agentConnected ? 'badge-success' : 'badge-danger'}`}>
+                <span className={`status-dot ${agentConnected ? 'connected' : 'disconnected'}`} />
+                Agent: {agentConnected ? 'Connected' : 'Not Connected'}
+              </div>
+            </>
           )}
+          {mitigationEnabled && <div className="badge badge-success">🛡️ Mitigation Active</div>}
         </div>
 
-        {!agentConnected && (
-          <div style={{ marginTop: '1rem' }}>
-            <Link href="/setup" className="btn btn-primary">
-              ⚡ Setup Agent
-            </Link>
-          </div>
+        {/* Mode switcher */}
+        {mode === 'detecting' && (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>Detecting backend...</p>
+        )}
+        {isDemo && (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+            To use live measurements, run the backend locally: <code style={{ color: 'var(--accent-cyan)' }}>cd backend && npm start</code>
+          </p>
         )}
       </div>
 
       {/* Experiment Lock Banner */}
-      {experiment.isRunning && (
+      {testRunning && isDemo && (
         <div className="experiment-banner" style={{ marginBottom: '1.5rem' }}>
-          <span className="lock-icon">🔒</span>
+          <span className="lock-icon">🎮</span>
           <div>
-            <strong>Paired Experiment Running: {experiment.experimentId}</strong>
+            <strong>Simulated Test Running</strong>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: 0 }}>
-              Impairment controls locked. {experiment.state === 'test_a_running' ? 'Test A (No Mitigation)' : experiment.state === 'test_b_running' ? 'Test B (With Mitigation)' : experiment.state} in progress...
+              Generating realistic jitter data...
             </p>
           </div>
         </div>
@@ -317,44 +370,26 @@ export default function DashboardPage() {
           <h3 className="section-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>🎮 Test Controls</h3>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            <button
-              className="btn btn-primary"
-              onClick={handleStartTest}
-              disabled={!agentConnected || testRunning || experiment.isRunning}
-            >
-              ▶ Start Test
+            <button className="btn btn-primary" onClick={handleStartTest}
+              disabled={testRunning || (mode === 'live' && !agentConnected)}>
+              ▶ {isDemo ? 'Run Simulated Test' : 'Start Test'}
             </button>
-            <button
-              className="btn btn-danger"
-              onClick={handleStopTest}
-              disabled={!testRunning}
-            >
+            <button className="btn btn-danger" onClick={handleStopTest} disabled={!testRunning}>
               ⏹ Stop
             </button>
-            <button
-              className="btn btn-success btn-lg"
-              onClick={handleStartExperiment}
-              disabled={!agentConnected || testRunning || experiment.isRunning}
-            >
-              🔬 Run Paired Experiment
+            <button className="btn btn-success btn-lg" onClick={handleStartExperiment}
+              disabled={testRunning || (mode === 'live' && !agentConnected)}>
+              🔬 {isDemo ? 'Run Demo Experiment' : 'Run Paired Experiment'}
             </button>
           </div>
 
           {/* Progress */}
-          {(testRunning || experiment.isRunning) && (
+          {testRunning && (
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
-                <div style={{
-                  height: '100%',
-                  width: `${progress * 100}%`,
-                  background: 'var(--gradient-hero)',
-                  borderRadius: 2,
-                  transition: 'width 0.3s ease',
-                }} />
+                <div style={{ height: '100%', width: `${progress * 100}%`, background: 'var(--gradient-hero)', borderRadius: 2, transition: 'width 0.3s ease' }} />
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                {Math.round(progress * 100)}%
-              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{Math.round(progress * 100)}%</span>
             </div>
           )}
 
@@ -371,40 +406,35 @@ export default function DashboardPage() {
         </div>
 
         {/* Right: Impairment Controls */}
-        <div className="glass-card" style={{ padding: '1.5rem', opacity: impairmentLocked ? 0.5 : 1 }}>
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
           <h3 className="section-title" style={{ fontSize: '1rem', marginBottom: '1rem' }}>
-            🌊 Network Impairment {impairmentLocked && '🔒'}
+            🌊 Network Impairment {isDemo && <span className="badge badge-warning" style={{ fontSize: '0.65rem', marginLeft: 8 }}>Demo</span>}
           </h3>
-          {impairmentLocked && (
-            <p style={{ fontSize: '0.75rem', color: 'var(--accent-amber)', marginBottom: '1rem' }}>
-              Controls locked during paired experiment.
+          {isDemo && (
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+              Adjust these sliders to change the simulated network conditions, then run a test.
             </p>
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div className="slider-group">
               <label>Base Delay <span>{baseDelay} ms</span></label>
-              <input type="range" min={0} max={200} value={baseDelay}
-                onChange={e => setBaseDelay(Number(e.target.value))} disabled={impairmentLocked} />
+              <input type="range" min={0} max={200} value={baseDelay} onChange={e => setBaseDelay(Number(e.target.value))} disabled={impairmentLocked} />
             </div>
             <div className="slider-group">
               <label>Random Jitter <span>±{randomJitter} ms</span></label>
-              <input type="range" min={0} max={100} value={randomJitter}
-                onChange={e => setRandomJitter(Number(e.target.value))} disabled={impairmentLocked} />
+              <input type="range" min={0} max={100} value={randomJitter} onChange={e => setRandomJitter(Number(e.target.value))} disabled={impairmentLocked} />
             </div>
             <div className="slider-group">
               <label>Packet Loss <span>{packetLoss}%</span></label>
-              <input type="range" min={0} max={30} value={packetLoss}
-                onChange={e => setPacketLoss(Number(e.target.value))} disabled={impairmentLocked} />
+              <input type="range" min={0} max={30} value={packetLoss} onChange={e => setPacketLoss(Number(e.target.value))} disabled={impairmentLocked} />
             </div>
 
-            <button
-              className="btn btn-ghost"
-              onClick={handleConfigureImpairment}
-              disabled={impairmentLocked || !agentConnected}
-            >
-              Apply Impairment
-            </button>
+            {mode === 'live' && (
+              <button className="btn btn-ghost" onClick={handleConfigureImpairment} disabled={impairmentLocked || !agentConnected}>
+                Apply Impairment
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -441,93 +471,39 @@ function MiniStat({ label, value, unit }: { label: string; value?: number; unit?
   );
 }
 
-// Simple canvas chart renderer
-function drawChart(
-  canvas: HTMLCanvasElement | null,
-  data: number[],
-  color1: string,
-  color2: string,
-  label: string
-) {
+function drawChart(canvas: HTMLCanvasElement | null, data: number[], color1: string, color2: string, label: string) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
   ctx.scale(dpr, dpr);
-
-  const w = rect.width;
-  const h = rect.height;
-  const padding = { top: 20, right: 20, bottom: 30, left: 50 };
-  const chartW = w - padding.left - padding.right;
-  const chartH = h - padding.top - padding.bottom;
-
-  // Clear
+  const w = rect.width, h = rect.height;
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const cW = w - pad.left - pad.right, cH = h - pad.top - pad.bottom;
   ctx.clearRect(0, 0, w, h);
-
-  if (data.length < 2) {
-    ctx.fillStyle = '#64748b';
-    ctx.font = '13px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Waiting for ${label} data...`, w / 2, h / 2);
-    return;
-  }
-
+  if (data.length < 2) { ctx.fillStyle = '#64748b'; ctx.font = '13px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(`Waiting for ${label} data...`, w / 2, h / 2); return; }
   const maxVal = Math.max(...data) * 1.2 || 1;
-  const minVal = 0;
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
-    const y = padding.top + (chartH * i) / 4;
-    ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(w - padding.right, y);
-    ctx.stroke();
-
-    const val = maxVal - (maxVal * i) / 4;
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px JetBrains Mono, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(val.toFixed(1), padding.left - 8, y + 3);
+    const y = pad.top + (cH * i) / 4;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    ctx.fillStyle = '#64748b'; ctx.font = '10px JetBrains Mono, monospace'; ctx.textAlign = 'right';
+    ctx.fillText((maxVal - (maxVal * i) / 4).toFixed(1), pad.left - 8, y + 3);
   }
-
-  // Draw line
-  const gradient = ctx.createLinearGradient(0, padding.top, 0, h - padding.bottom);
-  gradient.addColorStop(0, color1);
-  gradient.addColorStop(1, color2);
-
-  ctx.strokeStyle = gradient;
-  ctx.lineWidth = 2;
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-
+  const grad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
+  grad.addColorStop(0, color1); grad.addColorStop(1, color2);
+  ctx.strokeStyle = grad; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
   for (let i = 0; i < data.length; i++) {
-    const x = padding.left + (i / (data.length - 1)) * chartW;
-    const y = padding.top + chartH - ((data[i] - minVal) / (maxVal - minVal)) * chartH;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    const x = pad.left + (i / (data.length - 1)) * cW;
+    const y = pad.top + cH - (data[i] / maxVal) * cH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
   ctx.stroke();
-
-  // Fill area
-  const areaGradient = ctx.createLinearGradient(0, padding.top, 0, h - padding.bottom);
-  areaGradient.addColorStop(0, color1 + '30');
-  areaGradient.addColorStop(1, 'transparent');
-
-  ctx.lineTo(padding.left + chartW, padding.top + chartH);
-  ctx.lineTo(padding.left, padding.top + chartH);
-  ctx.closePath();
-  ctx.fillStyle = areaGradient;
-  ctx.fill();
-
-  // Label
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '11px Inter, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(label, w / 2, h - 5);
+  const aGrad = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
+  aGrad.addColorStop(0, color1 + '30'); aGrad.addColorStop(1, 'transparent');
+  ctx.lineTo(pad.left + cW, pad.top + cH); ctx.lineTo(pad.left, pad.top + cH); ctx.closePath();
+  ctx.fillStyle = aGrad; ctx.fill();
+  ctx.fillStyle = '#94a3b8'; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, w / 2, h - 5);
 }

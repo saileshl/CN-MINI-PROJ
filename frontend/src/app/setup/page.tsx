@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from '@/hooks/useSession';
 import { useWebSocket, WSMessage } from '@/hooks/useWebSocket';
+import Link from 'next/link';
 
 export default function SetupPage() {
   const { session, wsUrl, revokeAgent, createSession } = useSession();
@@ -10,6 +11,7 @@ export default function SetupPage() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'windows' | 'mac' | 'linux'>('windows');
   const [codeExpired, setCodeExpired] = useState(false);
+  const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
   const onMessage = useCallback((msg: WSMessage) => {
     if (msg.type === 'agent_status') {
@@ -20,16 +22,24 @@ export default function SetupPage() {
 
   const { connectionState } = useWebSocket({
     url: wsUrl,
-    sessionId: session?.sessionId || null,
+    sessionId: backendOnline ? (session?.sessionId || null) : null,
     onMessage,
   });
 
-  // Check if code is expired
+  // Check backend reachability
+  useEffect(() => {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    fetch(`${backendUrl}/api/health`, { signal: controller.signal })
+      .then(res => { clearTimeout(timer); setBackendOnline(res.ok); })
+      .catch(() => { clearTimeout(timer); setBackendOnline(false); });
+  }, []);
+
+  // Check code expiry
   useEffect(() => {
     if (!session?.expiresAt) return;
-    const check = () => {
-      setCodeExpired(Date.now() > session.expiresAt);
-    };
+    const check = () => setCodeExpired(Date.now() > session.expiresAt);
     check();
     const interval = setInterval(check, 5000);
     return () => clearInterval(interval);
@@ -49,17 +59,39 @@ export default function SetupPage() {
           </span>
         </h1>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Connect the Python Network Agent to start measuring jitter
+          Connect the Python Network Agent to start measuring real network jitter
         </p>
       </div>
+
+      {/* Backend Status Banner */}
+      {backendOnline === false && (
+        <div className="experiment-banner" style={{ marginBottom: '2rem', borderColor: 'rgba(245, 158, 11, 0.3)', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%)' }}>
+          <span style={{ fontSize: '1.5rem' }}>🎮</span>
+          <div>
+            <strong style={{ color: 'var(--accent-amber)' }}>Backend Not Running — Demo Mode Available</strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>
+              The pairing system requires the backend server running locally. You can still explore the{' '}
+              <Link href="/" style={{ color: 'var(--accent-cyan)' }}>Dashboard in Demo Mode</Link> with simulated data.
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              To run live: <code style={{ color: 'var(--accent-cyan)' }}>cd backend && npm install && npm start</code>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Agent Status */}
       <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-          <span className={`status-dot ${agentConnected ? 'connected' : 'disconnected'}`}
+          <span className={`status-dot ${agentConnected ? 'connected' : backendOnline ? 'disconnected' : 'connecting'}`}
                 style={{ width: 16, height: 16 }} />
           <span style={{ fontSize: '1.25rem', fontWeight: 700 }}>
-            Agent Status: {agentConnected ? '🟢 Connected' : '🔴 Not Connected'}
+            {backendOnline === false
+              ? 'Backend: Offline'
+              : agentConnected
+                ? '🟢 Agent Connected'
+                : '🔴 Agent Not Connected'
+            }
           </span>
         </div>
         {agentConnected && agentId && (
@@ -79,147 +111,157 @@ export default function SetupPage() {
         )}
       </div>
 
-      {/* Pairing Flow (show only if not connected) */}
-      {!agentConnected && (
-        <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
-            First-Time Pairing
-          </h2>
+      {/* How It Works */}
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', textAlign: 'center' }}>
+          How to Run Live Measurements
+        </h2>
 
-          <div className="setup-steps">
-            {/* Step 1: Get the code */}
-            <div className="setup-step">
-              <div className="step-number">1</div>
-              <div className="step-content" style={{ flex: 1 }}>
-                <h3>Your Pairing Code</h3>
-                <p>Share this code with the Python Agent to pair it with your browser session.</p>
-                <div style={{ marginTop: '1rem' }}>
-                  {session?.pairingCode && !codeExpired ? (
-                    <div className="pairing-code">{session.pairingCode}</div>
-                  ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <p style={{ color: 'var(--accent-amber)', marginBottom: '0.75rem' }}>
-                        {codeExpired ? '⏰ Code expired' : 'Generating code...'}
-                      </p>
-                      <button className="btn btn-primary" onClick={handleRefreshCode}>
-                        🔄 Get New Code
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2: Download */}
-            <div className="setup-step">
-              <div className="step-number">2</div>
-              <div className="step-content">
-                <h3>Download the Network Agent</h3>
-                <p>Get the Python agent source or the Windows executable.</p>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                  <a href="https://github.com/saileshl/CN-MINI-PROJ/releases/latest" target="_blank" rel="noopener noreferrer"
-                     className="btn btn-primary btn-lg">
-                    ⬇️ Download for Windows (.exe)
-                  </a>
-                  <a href="https://github.com/saileshl/CN-MINI-PROJ" target="_blank" rel="noopener noreferrer"
-                     className="btn btn-ghost">
-                    📦 Source Code
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3: Run */}
-            <div className="setup-step">
-              <div className="step-number">3</div>
-              <div className="step-content">
-                <h3>Run the Agent</h3>
-                <p>Start the agent with your pairing code:</p>
-
-                <div className="tabs" style={{ marginTop: '0.75rem' }}>
-                  <div className={`tab ${activeTab === 'windows' ? 'active' : ''}`} onClick={() => setActiveTab('windows')}>Windows</div>
-                  <div className={`tab ${activeTab === 'mac' ? 'active' : ''}`} onClick={() => setActiveTab('mac')}>macOS</div>
-                  <div className={`tab ${activeTab === 'linux' ? 'active' : ''}`} onClick={() => setActiveTab('linux')}>Linux</div>
-                </div>
-
-                {activeTab === 'windows' && (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Option A: Python source</p>
-                    <code>cd agent</code><br />
-                    <code>pip install -r requirements.txt</code><br />
-                    <code>python network_agent.py --code {session?.pairingCode || 'XXXXXX'}</code>
-                    <br /><br />
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Option B: Executable</p>
-                    <code>NetworkJitterAgent.exe --code {session?.pairingCode || 'XXXXXX'}</code>
-                  </div>
-                )}
-                {activeTab === 'mac' && (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
-                    <code>cd agent</code><br />
-                    <code>pip3 install -r requirements.txt</code><br />
-                    <code>python3 network_agent.py --code {session?.pairingCode || 'XXXXXX'}</code>
-                  </div>
-                )}
-                {activeTab === 'linux' && (
-                  <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
-                    <code>cd agent</code><br />
-                    <code>pip install -r requirements.txt</code><br />
-                    <code>python3 network_agent.py --code {session?.pairingCode || 'XXXXXX'}</code>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Step 4: Verify */}
-            <div className="setup-step">
-              <div className="step-number">4</div>
-              <div className="step-content">
-                <h3>Return Here</h3>
-                <p>Once the agent connects, this page will show <strong style={{ color: 'var(--accent-green)' }}>🟢 Connected</strong>. Then go to the Dashboard and click <strong>Start Test</strong>.</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                  After first-time pairing, just start the agent normally — it connects automatically. No code needed again.
-                </p>
+        <div className="setup-steps">
+          {/* Step 1 */}
+          <div className="setup-step">
+            <div className="step-number">1</div>
+            <div className="step-content" style={{ flex: 1 }}>
+              <h3>Clone the Repository</h3>
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
+                <code>git clone https://github.com/saileshl/CN-MINI-PROJ.git</code><br />
+                <code>cd CN-MINI-PROJ</code>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Troubleshooting */}
-      <div className="glass-card" style={{ padding: '2rem' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>🔧 Troubleshooting</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
-          <TroubleshootItem
-            problem="Agent says 'Connection refused'"
-            solution="Make sure the backend server is running: cd backend && npm start"
-          />
-          <TroubleshootItem
-            problem="Agent says 'Invalid or expired pairing code'"
-            solution="Click 'Get New Code' above to generate a fresh code. Codes expire after 5 minutes."
-          />
-          <TroubleshootItem
-            problem="Agent says 'Invalid or revoked agent token'"
-            solution="Run the agent with --reset flag to delete old credentials and pair again."
-          />
-          <TroubleshootItem
-            problem="Agent connects but dashboard doesn't show it"
-            solution="Make sure the backend CORS_ORIGIN matches your frontend URL. Check browser console for WebSocket errors."
-          />
-          <TroubleshootItem
-            problem="'No module named websockets' error"
-            solution="Install dependencies: pip install -r requirements.txt"
-          />
+          {/* Step 2 */}
+          <div className="setup-step">
+            <div className="step-number">2</div>
+            <div className="step-content">
+              <h3>Start the Backend Server</h3>
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)', marginTop: '0.5rem' }}>
+                <code>cd backend</code><br />
+                <code>npm install</code><br />
+                <code>npm start</code>
+              </div>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                This starts the WebSocket relay + UDP test server on port 4000/5005.
+              </p>
+            </div>
+          </div>
+
+          {/* Step 3 */}
+          <div className="setup-step">
+            <div className="step-number">3</div>
+            <div className="step-content" style={{ flex: 1 }}>
+              <h3>Get a Pairing Code</h3>
+              {backendOnline && session?.pairingCode && !codeExpired ? (
+                <div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                    Your pairing code (valid for 5 minutes):
+                  </p>
+                  <div className="pairing-code">{session.pairingCode}</div>
+                </div>
+              ) : (
+                <div>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {backendOnline === false
+                      ? 'Start the backend server first, then open http://localhost:3000/setup to get a pairing code.'
+                      : codeExpired
+                        ? '⏰ Code expired.'
+                        : 'Waiting for backend connection...'}
+                  </p>
+                  {backendOnline && (
+                    <button className="btn btn-primary" onClick={handleRefreshCode} style={{ marginTop: '0.5rem' }}>
+                      🔄 Get New Code
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 4 */}
+          <div className="setup-step">
+            <div className="step-number">4</div>
+            <div className="step-content">
+              <h3>Run the Python Agent</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                Requires Python 3.10+. First time only — enter your pairing code:
+              </p>
+
+              <div className="tabs" style={{ marginTop: '0.5rem' }}>
+                <div className={`tab ${activeTab === 'windows' ? 'active' : ''}`} onClick={() => setActiveTab('windows')}>Windows</div>
+                <div className={`tab ${activeTab === 'mac' ? 'active' : ''}`} onClick={() => setActiveTab('mac')}>macOS</div>
+                <div className={`tab ${activeTab === 'linux' ? 'active' : ''}`} onClick={() => setActiveTab('linux')}>Linux</div>
+              </div>
+
+              <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
+                <code>cd agent</code><br />
+                <code>{activeTab === 'mac' ? 'pip3' : 'pip'} install -r requirements.txt</code><br />
+                <code>{activeTab === 'windows' ? 'python' : 'python3'} network_agent.py --code {session?.pairingCode || 'XXXXXX'}</code>
+                <br /><br />
+                <p style={{ color: 'var(--text-muted)', marginBottom: '0.25rem' }}>After first pairing (no code needed):</p>
+                <code>{activeTab === 'windows' ? 'python' : 'python3'} network_agent.py</code>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 5 */}
+          <div className="setup-step">
+            <div className="step-number">5</div>
+            <div className="step-content">
+              <h3>Go to Dashboard</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Once the agent connects, go to the <Link href="/" style={{ color: 'var(--accent-cyan)' }}>Dashboard</Link> and click <strong>Start Test</strong>.
+              </p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                After first-time pairing, just start the agent — it connects automatically. No code needed again.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
 
-function TroubleshootItem({ problem, solution }: { problem: string; solution: string }) {
-  return (
-    <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--accent-blue)' }}>
-      <strong style={{ color: 'var(--accent-amber)' }}>{problem}</strong>
-      <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{solution}</p>
+      {/* Demo Mode Card */}
+      <div className="glass-card" style={{ padding: '2rem', textAlign: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+          🎮 Just Want to See It Work?
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+          The Dashboard has a built-in Demo Mode that runs simulated measurements with realistic jitter data.
+          No setup needed — works right in your browser.
+        </p>
+        <Link href="/" className="btn btn-success btn-lg">
+          ⚡ Open Dashboard (Demo Mode)
+        </Link>
+      </div>
+
+      {/* Architecture */}
+      <div className="glass-card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>🏗️ Architecture</h2>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 2, color: 'var(--accent-cyan)', background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
+          <div>🌐 <strong>Next.js Frontend</strong> (this site — Vercel)</div>
+          <div style={{ paddingLeft: '1.5rem', color: 'var(--text-muted)' }}>↕ WebSocket</div>
+          <div>⚡ <strong>Node.js Backend</strong> (your machine — port 4000)</div>
+          <div style={{ paddingLeft: '1.5rem', color: 'var(--text-muted)' }}>↕ WebSocket</div>
+          <div>🐍 <strong>Python Agent</strong> (your machine — measures jitter)</div>
+          <div style={{ paddingLeft: '1.5rem', color: 'var(--text-muted)' }}>↕ UDP packets</div>
+          <div>📡 <strong>UDP Test Server</strong> (your machine — port 5005)</div>
+        </div>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+          The backend requires WebSockets + UDP, which can&apos;t run on serverless platforms like Vercel.
+          It runs on your local machine or a persistent host (Railway/Render).
+        </p>
+      </div>
+
+      {/* Source Code */}
+      <div className="glass-card" style={{ padding: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>📦 Source Code</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
+          Full source code with backend, Python agent, tests, and documentation:
+        </p>
+        <a href="https://github.com/saileshl/CN-MINI-PROJ" target="_blank" rel="noopener noreferrer"
+           className="btn btn-primary btn-lg">
+          🔗 View on GitHub
+        </a>
+      </div>
     </div>
   );
 }
