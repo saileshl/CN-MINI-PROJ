@@ -1,0 +1,521 @@
+==================================================
+PRODUCTION-READY DELIVERY REQUIREMENT
+==================================================
+
+The project must be delivered as a COMPLETE, SELF-CONTAINED,
+GITHUB-READY and VERCEL-DEPLOYABLE project.
+
+Do NOT leave any missing files, placeholder files, fake configuration,
+unfinished setup, undocumented dependencies, or manual implementation
+steps that the developer is expected to figure out later.
+
+Everything required for another developer/user to clone, install,
+run, test, build, and deploy the project must be present in the repository.
+
+==================================================
+GITHUB REQUIREMENTS
+==================================================
+
+The final repository must be fully GitHub-ready.
+
+Create and verify:
+
+- README.md
+- .gitignore
+- .env.example
+- package.json files
+- lock files where appropriate
+- complete source code
+- complete Python Agent source
+- Python requirements.txt
+- backend source
+- frontend source
+- test files
+- configuration files
+- deployment configuration
+- documentation
+- setup instructions
+- architecture documentation
+
+Do NOT commit:
+
+- .env files containing secrets
+- API keys
+- passwords
+- authentication tokens
+- node_modules
+- Python virtual environments
+- __pycache__
+- build artifacts that should not be tracked
+- temporary files
+- local machine-specific configuration
+
+The repository must be possible to clone from a clean computer and
+follow the README to reproduce the project.
+
+Before declaring the project complete:
+
+1. Initialize Git if necessary.
+2. Verify the repository structure.
+3. Run git status.
+4. Verify no secrets or unnecessary files are tracked.
+5. Verify .gitignore works.
+6. Verify the project can be built from a clean environment.
+7. Ensure the repository is ready to be pushed directly to GitHub.
+
+If GitHub CLI is available, you may also verify repository readiness,
+but DO NOT push to any remote repository unless explicitly authorized.
+
+==================================================
+VERCEL DEPLOYMENT REQUIREMENT
+==================================================
+
+The FRONTEND must be fully deployable to Vercel.
+
+The project must not merely be "compatible with Vercel."
+
+It must actually be configured and tested for a production Vercel deployment.
+
+Requirements:
+
+- Next.js production build must succeed.
+- No localhost URLs hardcoded into production frontend code.
+- No development-only dependencies required at runtime.
+- Production environment variables must be documented.
+- Create .env.example with every required variable.
+- Use environment variables for backend URLs and configuration.
+- Configure CORS correctly.
+- Configure WebSocket/backend URLs correctly.
+- Make sure browser-side code uses the correct production backend URL.
+- Make sure refresh/navigation works correctly on Vercel.
+- Avoid filesystem-dependent functionality in Vercel serverless functions.
+- Do not rely on a local development server being available after deployment.
+
+If a persistent WebSocket backend cannot technically be hosted by Vercel,
+DO NOT attempt to fake persistent WebSocket behavior using Vercel serverless
+functions.
+
+Instead:
+
+FRONTEND:
+Vercel
+
+BACKEND / WEBSOCKET GATEWAY:
+A suitable persistent backend host
+
+PYTHON AGENT:
+User's local computer
+
+Document this architecture clearly.
+
+The final project must include deployment instructions for both the
+Vercel frontend and the persistent backend.
+
+==================================================
+PYTHON NETWORK AGENT DELIVERY
+==================================================
+
+The Python Network Agent is a CORE part of the project.
+
+It must NOT exist only as code embedded in documentation.
+
+Create a complete standalone Agent package.
+
+At minimum:
+
+/agent
+    network_agent.py
+    requirements.txt
+    README.md
+    configuration/example configuration files
+    tests/
+
+The Agent must:
+
+- connect automatically to the backend
+- authenticate itself
+- maintain its connection
+- reconnect automatically after temporary disconnection
+- receive authorized commands
+- perform network tests
+- measure RTT
+- calculate jitter
+- calculate packet loss
+- perform jitter-buffer mitigation
+- stream results back to the dashboard
+- handle errors gracefully
+- shut down cleanly
+
+==================================================
+PYTHON AGENT USER INSTALLATION
+==================================================
+
+The website must provide a clear "Download Agent" / "Install Agent"
+section.
+
+The repository must contain everything necessary to obtain the Agent.
+
+Provide:
+
+1. Python source code.
+2. requirements.txt.
+3. Installation instructions.
+4. Configuration instructions.
+5. Running instructions.
+6. Troubleshooting instructions.
+7. Windows instructions.
+8. Linux/macOS instructions where practical.
+
+The user workflow should be:
+
+FIRST TIME:
+
+1. Open website.
+2. Go to "Connect Agent".
+3. Download the Network Agent.
+4. Install Python/dependencies OR use the packaged executable.
+5. Start the Agent.
+6. Agent automatically connects to the backend.
+7. Website detects the connection.
+8. User clicks "Start Test".
+
+AFTER SETUP:
+
+1. Start Agent.
+2. Open website.
+3. Agent connects automatically.
+4. Click "Start Test".
+5. Everything else is automatic.
+
+The user must NEVER have to:
+
+- manually copy measurement values
+- manually copy JSON
+- manually enter RTT
+- manually enter jitter
+- manually enter session IDs
+- manually upload result files
+- manually modify source code
+- manually change ports
+- manually edit networking code
+
+==================================================
+PYTHON EXECUTABLE / DISTRIBUTION
+==================================================
+
+Investigate packaging the Python Agent into a standalone executable.
+
+For Windows, preferably produce:
+
+NetworkJitterAgent.exe
+
+using PyInstaller or another suitable packaging approach.
+
+If executable generation is possible in the development environment:
+
+- build it
+- test it
+- include the build instructions
+- include the generated artifact where appropriate
+- document its limitations
+
+If a prebuilt executable cannot be safely committed to GitHub because
+of environment limitations, provide a reproducible build script such as:
+
+build_agent.bat
+build_agent.ps1
+build_agent.sh
+
+and document exactly how to generate the executable.
+
+Do NOT make the project depend on an undocumented manual build process.
+
+==================================================
+WEBSITE AGENT SETUP PAGE
+==================================================
+
+Create a polished setup page on the website.
+
+It should contain:
+
+----------------------------------------
+NETWORK AGENT
+----------------------------------------
+
+Status:
+🔴 Not Connected
+
+Step 1
+Download the Network Agent
+
+[ DOWNLOAD FOR WINDOWS ]
+
+Step 2
+Run the Agent
+
+Step 3
+Return to this page
+
+Status:
+🟢 Agent Connected
+
+[ START NETWORK TEST ]
+
+----------------------------------------
+
+Also include:
+
+- installation instructions
+- operating system instructions
+- troubleshooting
+- connection status
+- agent version
+- reconnect status
+- helpful error messages
+
+The setup page must NOT assume that the user is a programmer.
+
+==================================================
+FULL END-TO-END USER JOURNEY
+==================================================
+
+The entire system must be tested from the perspective of a new user.
+
+Simulate the following:
+
+NEW USER:
+
+1. Clone/download repository.
+2. Install dependencies.
+3. Start backend.
+4. Start frontend.
+5. Start test server.
+6. Run Python Agent.
+7. Open website.
+8. Agent becomes connected.
+9. Start a network test.
+10. Watch live measurements.
+11. Introduce controlled jitter.
+12. Observe increased jitter.
+13. Enable mitigation.
+14. Run mitigation test.
+15. Observe effective delivery jitter.
+16. Stop test.
+17. Review before/after results.
+
+The final workflow must require no manual data transfer.
+
+==================================================
+CLEAN INSTALL TEST
+==================================================
+
+Perform a clean-install verification.
+
+Pretend this is a completely new computer.
+
+Verify that a developer can:
+
+git clone <repository>
+cd <repository>
+
+Then follow README instructions and successfully:
+
+- install dependencies
+- start backend
+- start frontend
+- start test server
+- install/start Agent
+- connect Agent
+- run test
+- see measurements
+- see mitigation results
+
+Fix any missing dependency or undocumented step discovered during this
+process.
+
+==================================================
+GITHUB README REQUIREMENT
+==================================================
+
+README.md must be written for a person who has never seen the project.
+
+Include:
+
+# Network Jitter Measurement and Reduction System
+
+## Demo
+
+Explain what the user will see.
+
+## Features
+
+## Architecture
+
+Include Mermaid architecture diagrams.
+
+## How It Works
+
+Explain:
+
+Browser
+→ Backend
+→ Python Agent
+→ Network
+
+## Jitter Measurement
+
+Explain the formula.
+
+## Jitter Mitigation
+
+Explain the jitter buffer.
+
+## Requirements
+
+List:
+
+- Node.js version
+- Python version
+- required tools
+
+## Installation
+
+Exact commands.
+
+## Running Locally
+
+Exact commands.
+
+## Agent Setup
+
+Detailed steps.
+
+## Website Usage
+
+Detailed steps.
+
+## Testing
+
+Exact test commands.
+
+## Production Deployment
+
+### Frontend → Vercel
+
+Exact instructions.
+
+### Backend → Persistent WebSocket Host
+
+Exact instructions.
+
+### Python Agent
+
+Exact instructions.
+
+## Environment Variables
+
+Explain every variable.
+
+## Troubleshooting
+
+Common errors and fixes.
+
+## Security
+
+Explain authentication and why the Agent uses an outbound connection.
+
+## Limitations
+
+Be technically honest.
+
+## Project Structure
+
+Show the complete directory structure.
+
+==================================================
+FINAL REPOSITORY AUDIT
+==================================================
+
+Before finishing, perform a final audit.
+
+Check:
+
+[ ] Frontend source exists.
+[ ] Backend source exists.
+[ ] Python Agent exists.
+[ ] UDP test server exists.
+[ ] Jitter measurement implementation exists.
+[ ] Jitter buffer implementation exists.
+[ ] Tests exist.
+[ ] README exists.
+[ ] .gitignore exists.
+[ ] .env.example exists.
+[ ] No secrets are committed.
+[ ] No hardcoded production URLs exist.
+[ ] No hardcoded credentials exist.
+[ ] Vercel production build succeeds.
+[ ] Backend production build succeeds.
+[ ] Python Agent starts successfully.
+[ ] Agent connects automatically.
+[ ] WebSocket communication works.
+[ ] Measurements reach the browser.
+[ ] Jitter is calculated from actual packet timing.
+[ ] Controlled impairment works.
+[ ] Mitigation works.
+[ ] Before/after comparison works.
+[ ] Multi-user isolation works.
+[ ] Reconnection works.
+[ ] Automated tests pass.
+[ ] Clean installation has been verified.
+[ ] Git repository is clean and ready for GitHub.
+[ ] README is sufficient for a new developer/user.
+[ ] No core feature is mocked or simulated with fake result values.
+
+Do not declare the project finished until this audit has been completed.
+
+==================================================
+FINAL OUTPUT
+==================================================
+
+When you finish, provide:
+
+1. Final project architecture.
+2. Complete directory tree.
+3. Technology stack.
+4. How the Python Agent communicates with the backend.
+5. How the website communicates with the Agent.
+6. How jitter is measured.
+7. How jitter mitigation works.
+8. Exact local startup commands.
+9. Exact Vercel deployment procedure.
+10. Exact backend deployment procedure.
+11. Exact Python Agent installation procedure.
+12. How a completely new user can use the system.
+13. Test commands and their results.
+14. Build results.
+15. Any limitations.
+16. Any files that need to be downloaded separately.
+17. Confirmation that the repository is GitHub-ready.
+
+MOST IMPORTANT:
+
+Do not just tell me how to build this.
+
+BUILD IT.
+
+TEST IT.
+
+FIX IT.
+
+VERIFY IT.
+
+LEAVE THE COMPLETE PROJECT IN THE WORKSPACE.
+
+The final repository must be ready for:
+- GitHub
+- Vercel deployment
+- backend deployment
+- Python Agent distribution
+- real demonstration
+
+START NOW AND WORK AUTONOMOUSLY.

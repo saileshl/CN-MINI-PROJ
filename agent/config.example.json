@@ -1,0 +1,9 @@
+{
+  "backend_url": "ws://localhost:4000/ws/agent",
+  "udp_target_host": "127.0.0.1",
+  "udp_target_port": 5005,
+  "packet_count": 200,
+  "packet_interval_ms": 50,
+  "jitter_buffer_min_ms": 20,
+  "jitter_buffer_max_ms": 200
+}
