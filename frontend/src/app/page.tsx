@@ -6,6 +6,7 @@ import { useWebSocket, WSMessage } from '@/hooks/useWebSocket';
 import { useExperiment } from '@/hooks/useExperiment';
 import { saveTestResult, saveExperiment } from '@/lib/storage';
 import { streamDemoTest, generateDemoExperiment } from '@/lib/demo';
+import RealtimeChart from '@/components/RealtimeChart';
 import Link from 'next/link';
 
 interface Metrics {
@@ -54,10 +55,6 @@ export default function DashboardPage() {
   const [randomJitter, setRandomJitter] = useState(40);
   const [packetLoss, setPacketLoss] = useState(5);
 
-  // Canvas refs
-  const rttCanvasRef = useRef<HTMLCanvasElement>(null);
-  const varCanvasRef = useRef<HTMLCanvasElement>(null);
-
   // Subscribe to live WebSocket messages
   useEffect(() => {
     const unsubscribe = subscribe((msg: WSMessage) => {
@@ -65,7 +62,14 @@ export default function DashboardPage() {
         case 'idle_ping': {
           const rtt = msg.rtt as number;
           if (rtt !== null && rtt !== undefined) {
-            setRttHistory(prev => [...prev, rtt].slice(-100));
+            setRttHistory(prev => {
+              if (prev.length > 0) {
+                const diff = Math.abs(rtt - prev[prev.length - 1]);
+                setVariationHistory(vPrev => [...vPrev, diff].slice(-100));
+                setMetrics(mPrev => ({ ...mPrev, avg_rtt_variation: diff }));
+              }
+              return [...prev, rtt].slice(-100);
+            });
             setMetrics(prev => ({
               ...prev,
               avg_rtt: rtt,
@@ -123,10 +127,6 @@ export default function DashboardPage() {
 
     return unsubscribe;
   }, [subscribe]);
-
-  // Render Charts with high-DPI
-  useEffect(() => { drawSleekChart(rttCanvasRef.current, rttHistory, '#00f0ff', '#6366f1', 'RTT (ms)'); }, [rttHistory]);
-  useEffect(() => { drawSleekChart(varCanvasRef.current, variationHistory, '#10b981', '#06b6d4', 'Variation (ms)'); }, [variationHistory]);
 
   // Demo actions
   const handleDemoTest = () => {
@@ -316,20 +316,24 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Live Charts */}
+      {/* Real-time Charts with Live Telemetry & Interactive Tooltips */}
       <div className="charts-grid">
-        <div className="chart-card">
-          <h3>📊 Round-Trip Time (RTT)</h3>
-          <div className="chart-container">
-            <canvas ref={rttCanvasRef} />
-          </div>
-        </div>
-        <div className="chart-card">
-          <h3>📈 RTT Variation (Jitter)</h3>
-          <div className="chart-container">
-            <canvas ref={varCanvasRef} />
-          </div>
-        </div>
+        <RealtimeChart
+          title="Round-Trip Time (RTT)"
+          unit="ms"
+          data={rttHistory}
+          colorTheme="cyan"
+          icon="📊"
+          height={240}
+        />
+        <RealtimeChart
+          title="RTT Variation (Jitter)"
+          unit="ms"
+          data={variationHistory}
+          colorTheme="emerald"
+          icon="📈"
+          height={240}
+        />
       </div>
 
       {/* Control Panel Grid */}
@@ -455,103 +459,4 @@ function MiniStat({ label, value, unit }: { label: string; value?: number; unit?
       </div>
     </div>
   );
-}
-
-// Sleek high-DPI canvas chart with glowing gradients
-function drawSleekChart(canvas: HTMLCanvasElement | null, data: number[], color1: string, color2: string, label: string) {
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-  const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) return;
-
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-
-  const w = rect.width;
-  const h = rect.height;
-  const pad = { top: 20, right: 20, bottom: 25, left: 45 };
-  const cW = w - pad.left - pad.right;
-  const cH = h - pad.top - pad.bottom;
-
-  ctx.clearRect(0, 0, w, h);
-
-  if (data.length < 2) {
-    // Draw background grid lines in standby
-    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 4; i++) {
-      const y = pad.top + (cH * i) / 4;
-      ctx.beginPath();
-      ctx.moveTo(pad.left, y);
-      ctx.lineTo(w - pad.right, y);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#00f0ff';
-    ctx.font = '600 12px "Plus Jakarta Sans", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`⚡ Connected · Click '▶ Start Test' to stream data`, w / 2, h / 2);
-    return;
-  }
-
-  const maxVal = Math.max(...data, 10) * 1.25;
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.top + (cH * i) / 4;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
-    ctx.stroke();
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText((maxVal - (maxVal * i) / 4).toFixed(0), pad.left - 8, y + 3);
-  }
-
-  // Plot path
-  const grad = ctx.createLinearGradient(pad.left, 0, pad.left + cW, 0);
-  grad.addColorStop(0, color1);
-  grad.addColorStop(1, color2);
-
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 2.5;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-
-  ctx.beginPath();
-  for (let i = 0; i < data.length; i++) {
-    const x = pad.left + (i / (data.length - 1)) * cW;
-    const y = pad.top + cH - (data[i] / maxVal) * cH;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  // Area Fill
-  const areaGrad = ctx.createLinearGradient(0, pad.top, 0, pad.top + cH);
-  areaGrad.addColorStop(0, color1 + '35');
-  areaGrad.addColorStop(1, 'transparent');
-
-  ctx.lineTo(pad.left + cW, pad.top + cH);
-  ctx.lineTo(pad.left, pad.top + cH);
-  ctx.closePath();
-  ctx.fillStyle = areaGrad;
-  ctx.fill();
-
-  // Latest value indicator dot
-  const lastVal = data[data.length - 1];
-  const lastX = pad.left + cW;
-  const lastY = pad.top + cH - (lastVal / maxVal) * cH;
-
-  ctx.fillStyle = color2;
-  ctx.beginPath();
-  ctx.arc(lastX, lastY, 4, 0, Math.PI * 2);
-  ctx.fill();
 }
