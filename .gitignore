@@ -21,13 +21,12 @@ venv/
 .vscode/
 .idea/
 
-# OS
-Thumbs.db
-Desktop.ini
-
-# Agent credentials (never commit)
-credentials.json
-prompt.txt
-
-# PyInstaller
-*.spec
+# Reports, LaTeX & Temporary Generation Artifacts
+*.tex
+*.zip
+*.pdf
+images/
+REFERENCE/
+generate_diagrams.py
+render_hd_terminal.py
+terminal_carbon.html
