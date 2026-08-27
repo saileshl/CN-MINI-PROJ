@@ -153,7 +153,7 @@
 \begin{table}[H]
 \centering
 \small
-\setlength{\tabcolsep}{3.5pt}
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|}
 \hline
 \textbf{POs} & \textbf{PO1} & \textbf{PO2} & \textbf{PO3} & \textbf{PO4} & \textbf{PO5} & \textbf{PO6} & \textbf{PO7} & \textbf{PO8} & \textbf{PO9} & \textbf{PO10} & \textbf{PO11} & \textbf{PO12} \\
@@ -253,9 +253,9 @@ PSO3 & Adaptation to Emerging ICT & 3 & Integrated cloud-native edge web technol
 
 Real-time multimedia applications---including Voice over IP (VoIP), WebRTC video conferencing, tele-surgery, and interactive cloud gaming---rely extensively on the User Datagram Protocol (UDP) due to its minimal header overhead and lack of retransmission latency. However, UDP provides no intrinsic guarantees regarding latency consistency or in-order delivery. Network jitter, defined as the statistical variation in packet transit delay, introduces severe packet arrival dispersion, causing audio distortion, video frame stuttering, and buffer underruns.
 
-This mini-project presents an end-to-end **Network Jitter Measurement and Application-Level Adaptive Jitter Buffer Reduction System**. The system consists of three coordinated subsystems: (1) a lightweight Python hardware measurement client that dispatches timestamped UDP probe bursts with microsecond precision, (2) an asynchronous Node.js UDP impairment engine capable of injecting controlled base delay, random Gaussian jitter ($\pm 100$\,ms), and synthetic packet loss (0--30\%), and (3) an application-level **Adaptive Circular Jitter Buffer** that dynamically adjusts playout delay based on real-time standard deviation of round-trip times ($D_{\text{target}} = \text{RTT}_{\text{avg}} + 3\sigma$).
+This mini-project presents an end-to-end \textbf{Network Jitter Measurement and Application-Level Adaptive Jitter Buffer Reduction System}. The system consists of three coordinated subsystems: (1) a lightweight Python hardware measurement client that dispatches timestamped UDP probe bursts with microsecond precision, (2) an asynchronous Node.js UDP impairment engine capable of injecting controlled base delay, random Gaussian jitter ($\pm 100$\,ms), and synthetic packet loss (0--30\%), and (3) an application-level \textbf{Adaptive Circular Jitter Buffer} that dynamically adjusts playout delay based on real-time standard deviation of round-trip times ($D_{\text{target}} = \text{RTT}_{\text{avg}} + 3\sigma$).
 
-The measured telemetry is streamed in real time via full-duplex WebSockets to a modern Next.js dashboard featuring 60\,FPS Catmull-Rom cubic spline canvas visualizations. Empirical evaluation across paired A/B benchmarks demonstrates that while physical network jitter fluctuates between 18\,ms and 45\,ms, the adaptive jitter buffer successfully smooths application playout delivery variation down to **3.2\,ms** (an **82.7\% reduction in effective delivery variance**) with minimal late-packet drops ($<1.5\%$).
+The measured telemetry is streamed in real time via full-duplex WebSockets to a modern Next.js dashboard featuring 60\,FPS Catmull-Rom cubic spline canvas visualizations. Empirical evaluation across paired A/B benchmarks demonstrates that while physical network jitter fluctuates between 18\,ms and 45\,ms, the adaptive jitter buffer successfully smooths application playout delivery variation down to \textbf{3.2\,ms} (an \textbf{82.7\% reduction in effective delivery variance}) with minimal late-packet drops ($<1.5\%$).
 
 \vspace{0.6cm}
 \noindent\textbf{\large Project Access \& Repository Links}
@@ -286,7 +286,7 @@ The measured telemetry is streamed in real time via full-duplex WebSockets to a 
 \section{Background \& Motivation}
 In modern computer networks, real-time interactive traffic accounts for a massive proportion of global internet bandwidth. Unlike elastic web traffic (HTTP file downloads and web browsing) which relies on TCP for reliable, ordered delivery, real-time multimedia cannot tolerate the Head-of-Line (HoL) blocking and retransmission delays inherent to TCP. Consequently, UDP is the ubiquitous transport protocol for real-time streaming.
 
-However, intermediate routers across packet-switched networks experience dynamic queuing, bufferbloat, and routing path variations. These dynamic conditions cause variable inter-packet arrival times, commonly known as **Network Jitter**. When jitter exceeds the playout threshold of a media receiver, packets arrive too late to be decoded into continuous speech or video frames, forcing the application to discard them as late drops. This creates the exact same perceptual degradation as physical packet loss.
+However, intermediate routers across packet-switched networks experience dynamic queuing, bufferbloat, and routing path variations. These dynamic conditions cause variable inter-packet arrival times, commonly known as \textbf{Network Jitter}. When jitter exceeds the playout threshold of a media receiver, packets arrive too late to be decoded into continuous speech or video frames, forcing the application to discard them as late drops. This creates the exact same perceptual degradation as physical packet loss.
 
 \section{Problem Statement}
 Measuring and mitigating network jitter presents several concrete technical challenges:
@@ -309,7 +309,7 @@ The primary objectives of this project are:
 \end{itemize}
 
 \section{Scope \& Limitations}
-This project focuses on transport-layer UDP probe measurement and application-layer playout buffering. The impairment engine models synthetic transit delays and loss on local and LAN environments without requiring kernel-level packet filtering drivers (e.g., NetEm or WinDivert). Advanced audio codecs (e.g., Opus FEC) are considered as future enhancements in Chapter 8.
+This project focuses on transport-layer UDP probe measurement and application-layer playout buffering. The impairment engine models synthetic transit delays and loss on local and LAN environments without requiring kernel-level packet filtering drivers. Advanced audio codecs (e.g., Opus FEC) are considered as future enhancements in Chapter 8.
 
 % =============================================================
 % CHAPTER 2: LITERATURE SURVEY & MATHEMATICAL FORMULATIONS
@@ -344,7 +344,7 @@ P_i = S_i + D_{\text{target}}
 \end{equation}
 \begin{itemize}
     \item If $R_i \le P_i$: The packet arrived in time and is held in the ordered circular queue until time $P_i$.
-    \item If $R_i > P_i$: The packet missed its playout window and is marked as a **Late Dropped Packet**.
+    \item If $R_i > P_i$: The packet missed its playout window and is marked as a \textbf{Late Dropped Packet}.
 \end{itemize}
 
 \section{Comparative Analysis of Buffering Strategies}
@@ -439,7 +439,7 @@ Table 4.1 summarizes the complete hardware, language, protocol, and cloud deploy
 \hline
 \textbf{Layer} & \textbf{Component} & \textbf{Technical Implementation Details} \\
 \hline
-Measurement Client & Python 3.12 & Monotonic clock (\texttt{time.perf_counter\_ns}), asynchronous WebSocket client \\
+Measurement Client & Python 3.12 & Monotonic clock (\texttt{time.perf\_counter\_ns}), asynchronous WebSocket client \\
 \hline
 Relay Backend & Node.js 20.x & Asynchronous non-blocking event loop, \texttt{ws} WebSocket hub (Port 4000) \\
 \hline
@@ -457,14 +457,14 @@ Edge Deployment & Vercel Cloud & Micro-containerized edge hosting with zero cold
 \end{table}
 
 \section{High-Precision UDP Measurement Engine}
-In [`agent/network_agent.py`](file:///d:/Projects/CN%20MINI%20PROJ/agent/network_agent.py), socket datagrams are stamped using Python's nanosecond clock:
+In \texttt{network\_agent.py}, socket datagrams are stamped using Python's nanosecond clock:
 \begin{equation}
-T_{\text{sent}} = \text{time.perf\_counter\_ns}() / 10^6 \quad (\text{ms})
+T_{\text{sent}} = \frac{\text{time.perf\_counter\_ns}()}{10^6} \quad (\text{ms})
 \end{equation}
 The payload embeds a 32-bit sequence number, sent timestamp, and random padding to emulate real-world RTP voice datagrams (160 bytes). When the packet returns from the UDP echo server at $T_{\text{recv}}$, Round-Trip Time is extracted as $\text{RTT} = T_{\text{recv}} - T_{\text{sent}}$.
 
 \section{Synthetic Impairment Injection Logic}
-In [`backend/src/udpServer.js`](file:///d:/Projects/CN%20MINI%20PROJ/backend/src/udpServer.js), the server intercepts incoming probe packets and applies three user-configurable impairments before echoing:
+In \texttt{udpServer.js}, the server intercepts incoming probe packets and applies three user-configurable impairments before echoing:
 \begin{enumerate}
     \item \textbf{Packet Loss Drop:} Generates a uniform random variable $U \in [0, 100)$. If $U < \text{LossPercent}$, the packet is dropped immediately without response.
     \item \textbf{Random Gaussian Jitter:} Generates a jitter offset $\Delta j = \text{random}(-J_{\text{max}}, +J_{\text{max}})$.
@@ -477,7 +477,7 @@ In [`backend/src/udpServer.js`](file:///d:/Projects/CN%20MINI%20PROJ/backend/src
 \newpage
 \chapter{Key Source Code Listings}
 
-\section{Python UDP Network Agent (`network_agent.py`)}
+\section{Python UDP Network Agent (`network\_agent.py`)}
 \begin{verbatim}
 # agent/network_agent.py - High Precision UDP Probe Engine
 import socket, time, json, asyncio, websockets
@@ -511,7 +511,7 @@ async def run_udp_test(config, send_update_cb):
         await asyncio.sleep(config['packet_interval_ms'] / 1000.0)
 \end{verbatim}
 
-\section{Adaptive Circular Jitter Buffer (`jitter_buffer.py`)}
+\section{Adaptive Circular Jitter Buffer (`jitter\_buffer.py`)}
 \begin{verbatim}
 # agent/jitter_buffer.py - Dynamic Target Playout Delay
 import numpy as np
@@ -580,7 +580,7 @@ Target Buffer Playout Depth & 0\,ms (Disabled) & 65.00\,ms & Dynamically adapted
 
 \section{Analysis of Results}
 \begin{enumerate}
-    \item \textbf{Significant Playout Variance Reduction:} While raw physical network jitter remained high (18.40\,ms), the adaptive buffer smoothed the effective application delivery variation down to **3.20\,ms**. This represents an **82.7\% reduction** in inter-packet arrival distortion.
+    \item \textbf{Significant Playout Variance Reduction:} While raw physical network jitter remained high (18.40\,ms), the adaptive buffer smoothed the effective application delivery variation down to \textbf{3.20\,ms}. This represents an \textbf{82.7\% reduction} in inter-packet arrival distortion.
     \item \textbf{Minimal Playout Delay Penalty:} The adaptive target depth converged to 65.0\,ms ($30\,\text{ms base} + 35\,\text{ms jitter head-room}$), keeping conversational audio within the ITU-T G.114 standard for high-quality voice ($<150$\,ms).
     \item \textbf{Controlled Late Drops:} Only 2 packets out of 200 ($1.0\%$) arrived past their scheduled playout deadline, confirming that the $3\sigma$ threshold effectively captured 99\% of variance spikes.
 \end{enumerate}
@@ -626,9 +626,9 @@ Target Buffer Playout Depth & 0\,ms (Disabled) & 65.00\,ms & Dynamically adapted
 \chapter{Conclusion \& Future Enhancements}
 
 \section{Conclusion}
-The **Network Jitter Measurement and Application-Level Adaptive Jitter Buffer Reduction System** successfully demonstrates the practical physics of UDP packet transit, network delay variation, and application playout compensation. By uniting high-precision Python monotonic socket probing, synthetic impairment injection, and an adaptive circular queue algorithm, the project bridges theoretical networking principles with production software engineering.
+The \textbf{Network Jitter Measurement and Application-Level Adaptive Jitter Buffer Reduction System} successfully demonstrates the practical physics of UDP packet transit, network delay variation, and application playout compensation. By uniting high-precision Python monotonic socket probing, synthetic impairment injection, and an adaptive circular queue algorithm, the project bridges theoretical networking principles with production software engineering.
 
-The system delivers real-time 60\,FPS visual telemetry, securely pairs local hardware clients with cloud dashboards using ephemeral session codes, and achieves an **82.7\% reduction in effective playout jitter** with minimal late-packet discards.
+The system delivers real-time 60\,FPS visual telemetry, securely pairs local hardware clients with cloud dashboards using ephemeral session codes, and achieves an \textbf{82.7\% reduction in effective playout jitter} with minimal late-packet discards.
 
 \section{Future Enhancements}
 \begin{enumerate}
