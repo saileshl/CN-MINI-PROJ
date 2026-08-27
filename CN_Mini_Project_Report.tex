@@ -6,7 +6,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=1in, top=1in, bottom=1in, left=1in, right=1in, headheight=15pt, footskip=0.4in]{geometry}
+\usepackage[margin=1in, top=0.9in, bottom=0.9in, left=1in, right=1in, headheight=15pt, footskip=0.4in]{geometry}
 \usepackage{graphicx}
 \usepackage{grffile}
 \usepackage{subcaption}
@@ -27,7 +27,7 @@
 \usepackage{eso-pic}
 \usepackage[hidelinks,bookmarksnumbered=true,colorlinks=true,linkcolor=black,citecolor=blue,urlcolor=blue]{hyperref}
 
-% Graphics paths
+% Graphics directory
 \graphicspath{{./}{./images/}{images/}}
 
 % -------------------------------------------------------------
@@ -47,31 +47,27 @@
 }
 
 % -------------------------------------------------------------
-% Styling, Fonts & Spacing
+% Typography & Formatting Customizations
 % -------------------------------------------------------------
-\definecolor{techblue}{RGB}{37, 99, 235}
-\definecolor{techgreen}{RGB}{16, 185, 129}
-\definecolor{charcoal}{RGB}{30, 41, 59}
-
 \onehalfspacing
-\renewcommand{\arraystretch}{1.3}
+\renewcommand{\arraystretch}{1.25}
 
-% Tabularx Column Aliases
+% Column Aliases for Perfect Alignment
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \newcolumntype{C}{>{\centering\arraybackslash}X}
 
-% Chapter & Section Headings Formatting
+% Section and Chapter Heading Formats
 \titleformat{\chapter}[display]
-{\normalfont\LARGE\bfseries\centering}{\chaptertitlename\ \thechapter}{12pt}{\LARGE\uppercase}
-\titlespacing*{\chapter}{0pt}{10pt}{25pt}
+{\normalfont\LARGE\bfseries\centering}{\chaptertitlename\ \thechapter}{10pt}{\LARGE\uppercase}
+\titlespacing*{\chapter}{0pt}{8pt}{18pt}
 
 \titleformat{\section}
 {\normalfont\Large\bfseries}{\thesection}{1em}{}
-\titlespacing*{\section}{0pt}{18pt}{10pt}
+\titlespacing*{\section}{0pt}{14pt}{8pt}
 
 \titleformat{\subsection}
 {\normalfont\large\bfseries}{\thesubsection}{1em}{}
-\titlespacing*{\subsection}{0pt}{14pt}{8pt}
+\titlespacing*{\subsection}{0pt}{10pt}{6pt}
 
 % Header and Footer Setup
 \setlength{\headheight}{15pt}
@@ -90,21 +86,19 @@
 \begin{document}
 
 % =============================================================
-% TITLE PAGE (Without Faculty Guide, Matching Format)
+% TITLE PAGE (Strictly Fits Exactly on Page 1)
 % =============================================================
 \begin{titlepage}
     \thispagestyle{empty}
     \centering
-    \vspace*{0.5cm}
+    \vspace*{0.2cm}
     
-    {\Large\bfseries RAJALAKSHMI INSTITUTE OF TECHNOLOGY\par}
-    \vspace{0.2cm}
-    {\large\bfseries KUTHAMBAKKAM, CHENNAI -- 600 124\par}
-    \vspace{0.2cm}
-    {\large Department of Computer Science and Engineering\par}
+    {\large\bfseries 2117240020329\par}
     
-    \vspace{1.5cm}
+    \vspace{1.2cm}
     
+    {\LARGE\bfseries MINI PROJECT REPORT\par}
+    \vspace{0.4cm}
     {\Large\bfseries COMPUTER NETWORKS LABORATORY\par}
     \vspace{0.2cm}
     {\large\bfseries (CS23521)\par}
@@ -113,20 +107,10 @@
     
     {\LARGE\bfseries NETWORK JITTER MEASUREMENT AND APPLICATION-LEVEL ADAPTIVE JITTER BUFFER REDUCTION SYSTEM\par}
     
-    \vspace{1.2cm}
-    
-    {\large\bfseries A MINI PROJECT REPORT\par}
-    \vspace{0.3cm}
-    {\normalsize Submitted in partial fulfilment of the requirements for the award of the degree\par of\par}
-    \vspace{0.3cm}
-    {\Large\bfseries BACHELOR OF ENGINEERING\par}
-    {\large in\par}
-    {\large\bfseries COMPUTER SCIENCE AND ENGINEERING\par}
-    
-    \vspace{1.5cm}
+    \vspace{1.6cm}
     
     {\large\bfseries BY\par}
-    \vspace{0.4cm}
+    \vspace{0.3cm}
     {\textbf{\Large SAILESH K}\par}
     \vspace{0.2cm}
     {\textbf{\large REG. NO.: 2117240020329}\par}
@@ -135,10 +119,16 @@
     
     \vfill
     
+    {\large\bfseries RAJALAKSHMI INSTITUTE OF TECHNOLOGY\par}
+    \vspace{0.15cm}
+    {\normalsize KUTHAMBAKKAM, CHENNAI -- 600 124\par}
+    \vspace{0.15cm}
+    {\normalsize DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING\par}
+    \vspace{0.15cm}
     {\large\bfseries ANNA UNIVERSITY : CHENNAI 600 025\par}
-    \vspace{0.2cm}
-    {\large\bfseries ACADEMIC YEAR 2026 -- 2027\par}
-    \vspace*{0.5cm}
+    \vspace{0.15cm}
+    {\normalsize ACADEMIC YEAR 2026 -- 2027\par}
+    \vspace*{0.3cm}
 \end{titlepage}
 
 % =============================================================
@@ -148,12 +138,12 @@
 \chapter*{Program Outcomes \& Program Specific Outcomes}
 
 \noindent\textbf{\large Program Outcomes (POs) Mapping}
-\vspace{0.3cm}
+\vspace{0.2cm}
 
 \begin{table}[H]
 \centering
 \small
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{3.2pt}
 \begin{tabular}{|l|c|c|c|c|c|c|c|c|c|c|c|c|}
 \hline
 \textbf{POs} & \textbf{PO1} & \textbf{PO2} & \textbf{PO3} & \textbf{PO4} & \textbf{PO5} & \textbf{PO6} & \textbf{PO7} & \textbf{PO8} & \textbf{PO9} & \textbf{PO10} & \textbf{PO11} & \textbf{PO12} \\
@@ -164,9 +154,9 @@
 \caption{Overall Program Outcomes (PO) Correlation Matrix}
 \end{table}
 
-\vspace{0.4cm}
-\noindent\textbf{\large Program Specific Outcomes (PSOs) Mapping}
 \vspace{0.3cm}
+\noindent\textbf{\large Program Specific Outcomes (PSOs) Mapping}
+\vspace{0.2cm}
 
 \begin{table}[H]
 \centering
@@ -181,11 +171,11 @@
 \caption{Program Specific Outcomes (PSO) Correlation Matrix}
 \end{table}
 
-\vspace{0.4cm}
+\vspace{0.3cm}
 \noindent\textbf{\large Program Outcomes (PO) Justifications}
 \vspace{0.2cm}
 
-\begin{xltabular}{\textwidth}{|c|p{3.2cm}|c|L|}
+\begin{xltabular}{\textwidth}{|c|p{2.8cm}|c|L|}
 \hline
 \textbf{PO} & \textbf{Title} & \textbf{Level} & \textbf{Justification} \\
 \hline
@@ -221,11 +211,11 @@ PO12 & Life-Long Learning & 3 & Extended academic knowledge by researching indus
 \hline
 \end{xltabular}
 
-\vspace{0.4cm}
+\vspace{0.3cm}
 \noindent\textbf{\large Program Specific Outcomes (PSO) Justifications}
 \vspace{0.2cm}
 
-\begin{xltabular}{\textwidth}{|c|p{3.5cm}|c|L|}
+\begin{xltabular}{\textwidth}{|c|p{3.2cm}|c|L|}
 \hline
 \textbf{PSO} & \textbf{Title} & \textbf{Level} & \textbf{Justification} \\
 \hline
@@ -245,11 +235,11 @@ PSO3 & Adaptation to Emerging ICT & 3 & Integrated cloud-native edge web technol
 % =============================================================
 % ABSTRACT & REPOSITORY LINKS
 % =============================================================
-\vspace{0.6cm}
+\vspace{0.5cm}
 \begin{center}
     {\Large\bfseries ABSTRACT\par}
 \end{center}
-\vspace{0.3cm}
+\vspace{0.2cm}
 
 Real-time multimedia applications---including Voice over IP (VoIP), WebRTC video conferencing, tele-surgery, and interactive cloud gaming---rely extensively on the User Datagram Protocol (UDP) due to its minimal header overhead and lack of retransmission latency. However, UDP provides no intrinsic guarantees regarding latency consistency or in-order delivery. Network jitter, defined as the statistical variation in packet transit delay, introduces severe packet arrival dispersion, causing audio distortion, video frame stuttering, and buffer underruns.
 
@@ -257,9 +247,9 @@ This mini-project presents an end-to-end \textbf{Network Jitter Measurement and 
 
 The measured telemetry is streamed in real time via full-duplex WebSockets to a modern Next.js dashboard featuring 60\,FPS Catmull-Rom cubic spline canvas visualizations. Empirical evaluation across paired A/B benchmarks demonstrates that while physical network jitter fluctuates between 18\,ms and 45\,ms, the adaptive jitter buffer successfully smooths application playout delivery variation down to \textbf{3.2\,ms} (an \textbf{82.7\% reduction in effective delivery variance}) with minimal late-packet drops ($<1.5\%$).
 
-\vspace{0.6cm}
+\vspace{0.5cm}
 \noindent\textbf{\large Project Access \& Repository Links}
-\vspace{0.3cm}
+\vspace{0.2cm}
 
 \begin{table}[H]
 \centering
@@ -270,8 +260,6 @@ The measured telemetry is streamed in real time via full-duplex WebSockets to a 
 \textbf{Live Web Application} & \url{https://cn-mini-proj.vercel.app} \\
 \hline
 \textbf{GitHub Source Code} & \url{https://github.com/saileshl/CN-MINI-PROJ} \\
-\hline
-\textbf{Backend WebSocket Relay} & \url{ws://localhost:4000/ws/agent} \\
 \hline
 \end{tabularx}
 \caption{Interactive Project Resources and Live Deployments}
@@ -294,7 +282,7 @@ Measuring and mitigating network jitter presents several concrete technical chal
     \item \textbf{Timing Resolution Bottlenecks:} Standard application clocks lack sub-millisecond precision, leading to quantized measurement errors when evaluating low-latency local area networks.
     \item \textbf{Inflexible Static Buffering:} Traditional fixed jitter buffers introduce excessive fixed delay during calm network periods and overflow/underflow during high-variance bursts.
     \item \textbf{Absence of Reproducible Impairment Testing:} Validating jitter mitigation algorithms under live public internet conditions is non-deterministic due to fluctuating third-party cross-traffic.
-    \item \textbf{Visual Telemetry Gaps:} Existing command-line tools (such as \texttt{iperf3} or \texttt{ping}) output static terminal summaries without real-time, interactive playout waveform visualization.
+    \item \textbf{Visual Telemetry Gaps:} Existing command-line tools output static terminal summaries without real-time, interactive playout waveform visualization.
 \end{enumerate}
 
 \section{Project Objectives}
@@ -382,7 +370,7 @@ The system is architected into four decoupled functional layers as illustrated i
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.92\linewidth]{architecture_diagram.png}
+    \includegraphics[width=0.88\linewidth]{architecture_diagram.png}
     \caption{Four-Layer Modular System Architecture}
     \label{fig:arch_diag}
 \end{figure}
@@ -399,7 +387,7 @@ Figure 3.2 illustrates the sequential execution pipeline from the user clicking 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.88\linewidth]{pipeline_flowchart.png}
+    \includegraphics[width=0.85\linewidth]{pipeline_flowchart.png}
     \caption{End-to-End Control and Telemetry Data Pipeline Flowchart}
     \label{fig:pipeline_flow}
 \end{figure}
@@ -409,7 +397,7 @@ Figure 3.3 details the decision logic executed for every received datagram insid
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.88\linewidth]{jitter_buffer_flowchart.png}
+    \includegraphics[width=0.85\linewidth]{jitter_buffer_flowchart.png}
     \caption{Adaptive Jitter Buffer Playout Algorithm Flowchart}
     \label{fig:buffer_flow}
 \end{figure}
@@ -419,7 +407,7 @@ Figure 3.4 outlines the primary interactions between the human network engineer 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.88\linewidth]{use_case_diagram.png}
+    \includegraphics[width=0.85\linewidth]{use_case_diagram.png}
     \caption{System UML Use Case Diagram}
     \label{fig:use_case}
 \end{figure}
@@ -593,28 +581,28 @@ Target Buffer Playout Depth & 0\,ms (Disabled) & 65.00\,ms & Dynamically adapted
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{dashboard_live.png}
-    \caption{Live Network Jitter Dashboard with 60\,FPS Catmull-Rom Cubic Spline Telemetry Charts}
+    \includegraphics[width=0.92\linewidth]{dashboard_live.png}
+    \caption{Live Network Jitter Dashboard with 60\,FPS Catmull-Rom Cubic Spline Telemetry Charts (Full HD Desktop PC View)}
     \label{fig:dash_screen}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{results_comparison.png}
-    \caption{Paired A/B Experiment Comparison Table Showing 82.7\% Delivery Variance Reduction}
+    \includegraphics[width=0.92\linewidth]{results_comparison.png}
+    \caption{Paired A/B Experiment Comparison Table Showing 82.7\% Delivery Variance Reduction (Full HD Desktop PC View)}
     \label{fig:results_screen}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{setup_guide.png}
-    \caption{A-to-Z Step-by-Step Agent Setup and Session Pairing Code Interface}
+    \includegraphics[width=0.92\linewidth]{setup_guide.png}
+    \caption{A-to-Z Step-by-Step Agent Setup and Session Pairing Code Interface (Full HD Desktop PC View)}
     \label{fig:setup_screen}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.95\linewidth]{terminal_output.png}
+    \includegraphics[width=0.92\linewidth]{terminal_output.png}
     \caption{Terminal Execution Output of the Python Network Jitter Measurement Agent}
     \label{fig:terminal_screen}
 \end{figure}
