@@ -1,73 +1,59 @@
 <div align="center">
 
-# ⚡ NETJITTER · TELEMETRY ⚡
-### *Real-Time UDP Transit Dynamics & Adaptive Playout Jitter Buffer Engine*
+<!-- Animated Header Banner -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=0,2,10,25,40&height=200&section=header&text=NETJITTER%20TELEMETRY&fontSize=42&fontAlignY=38&animation=twinkling&fontColor=ffffff" width="100%" alt="NetJitter Header" />
+
+<!-- Dynamic Animated Typing Subtitle -->
+<a href="https://cn-mini-proj.vercel.app">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=20&duration=3000&pause=1000&color=00F0FF&center=true&vCenter=true&width=750&lines=%E2%9A%A1+High-Precision+UDP+Network+Jitter+Measurement;%F0%9F%9B%A1%EF%B8%8F+Adaptive+Circular+Playout+Buffer+Mitigation+(-82.7%25+Variance);%F0%9F%93%8A+60+FPS+Real-Time+Catmull-Rom+Canvas+Telemetry;%F0%9F%8C%8A+Asynchronous+Synthetic+Impairment+Engine" alt="Typing Animation" />
+</a>
+
+<br/><br/>
+
+<!-- Glowing Status Badges -->
+[![Production Status](https://img.shields.io/badge/PRODUCTION-ONLINE-00F0FF?style=for-the-badge&logo=vercel&logoColor=white&labelColor=0B0D13)](https://cn-mini-proj.vercel.app)
+[![Jitter Optimization](https://img.shields.io/badge/JITTER_REDUCTION-82.7%25-10B981?style=for-the-badge&logo=actigraph&logoColor=white&labelColor=0B0D13)](#-performance-benchmarks)
+[![Clock Precision](https://img.shields.io/badge/PRECISION-1_NANOSECOND-A78BFA?style=for-the-badge&logo=cpu&logoColor=white&labelColor=0B0D13)](#-precision-measurement-engine)
+[![WebSocket Hub](https://img.shields.io/badge/RELAY-FULL_DUPLEX-F59E0B?style=for-the-badge&logo=socketdotio&logoColor=white&labelColor=0B0D13)](#-system-architecture)
 
 <br/>
-
-[![Live Production](https://img.shields.io/badge/PRODUCTION-ONLINE-00F0FF?style=for-the-badge&logo=vercel&logoColor=white&labelColor=0D1117)](https://cn-mini-proj.vercel.app)
-[![Build Status](https://img.shields.io/badge/ENGINE-PASSING-10B981?style=for-the-badge&logo=python&logoColor=white&labelColor=0D1117)](https://github.com/saileshl/CN-MINI-PROJ)
-[![Latency Resolution](https://img.shields.io/badge/TIMING-1_NANOSECOND-A78BFA?style=for-the-badge&logo=cpu&logoColor=white&labelColor=0D1117)](#)
-[![Jitter Attenuation](https://img.shields.io/badge/ATTENUATION--82.7%25-FF5F56?style=for-the-badge&logo=actigraph&logoColor=white&labelColor=0D1117)](#)
 
 <p align="center">
   <a href="https://cn-mini-proj.vercel.app"><b>🌐 Launch Live Web Console</b></a> •
   <a href="#-system-architecture"><b>📐 Architecture</b></a> •
-  <a href="#-mathematical-formulations"><b>🔬 Formulations</b></a> •
-  <a href="#-paired-ab-benchmark"><b>📊 A/B Benchmark</b></a> •
+  <a href="#-mathematical-foundations"><b>🔬 Formulations</b></a> •
+  <a href="#-paired-ab-experiment-benchmark"><b>📊 A/B Benchmark</b></a> •
   <a href="#-quickstart-protocol"><b>🚀 Quickstart</b></a>
 </p>
 
-```
-  ██████╗ ███╗   ██╗████████╗    ██╗██╗████████╗████████╗███████╗██████╗ 
-  ██╔════╝ ████╗  ██║╚══██╔══╝    ██║██║╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
-  ██║      ██╔██╗ ██║   ██║       ██║██║   ██║      ██║   █████╗  ██████╔╝
-  ██║      ██║╚██╗██║   ██║  ██   ██║██║   ██║      ██║   ██╔══╝  ██╔══██╗
-  ╚██████╗ ██║ ╚████║   ██║  ╚█████╔╝██║   ██║      ██║   ███████╗██║  ██║
-   ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚════╝ ╚═╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-```
-
-> **A high-precision, four-tier active telemetry pipeline uniting nanosecond monotonic UDP socket probing, synthetic impairment injection, an adaptive circular playout buffer, and a 60 FPS Catmull-Rom cubic spline canvas dashboard.**
+</div>
 
 ---
 
-</div>
+## ⚡ Overview
 
-<br/>
+**NetJitter** is a full-stack telemetry and network jitter mitigation system. It measures physical transport-layer UDP packet transit dynamics with **nanosecond monotonic precision** and demonstrates an application-level **Adaptive Circular Playout Buffer** that absorbs inter-arrival variance, streaming live 60 FPS telemetry curves to a modern web dashboard.
 
-## 🌌 SYSTEM RADAR & TELEMETRY HUD
+---
 
-```
-╔════════════════════════════════════════════════════════════════════════════════════════════╗
-║                                 NETJITTER TELEMETRY MATRIX                                 ║
-╠═════════════════════════════╦══════════════════════════════╦═══════════════════════════════╣
-║  📡 ACTIVE PROBE ENGINE     ║  🌊 SYNTHETIC IMPAIRMENT     ║  🛡️ ADAPTIVE PLAYOUT BUFFER   ║
-║  • Monotonic Clock (1 ns)   ║  • Base Delay: 0 – 200 ms    ║  • Target Playout: D_target   ║
-║  • 200 UDP Datagram Burst   ║  • Gaussian Jitter: ±100 ms  ║  • Dynamic Margin: + 3*sigma  ║
-║  • WebSocket Stream Relay   ║  • Synthetic Loss: 0 – 30 %  ║  • Variance Drop: 82.7 % (3ms)║
-╚═════════════════════════════╩══════════════════════════════╩═══════════════════════════════╝
-```
+## 🚀 Key Highlights
 
-<br/>
-
-## ⚡ CORE CAPABILITIES
-
-<table>
+<table align="center" width="100%">
   <tr>
     <td width="50%" valign="top">
       <h3>🎯 Hardware Nanosecond Probing</h3>
       <ul>
         <li>Dispatches 160-byte synthetic RTP audio datagrams over UDP sockets.</li>
-        <li>Stamps packet egress with Python's monotonic nanosecond clock <code>time.perf_counter_ns()</code>.</li>
-        <li>Sub-millisecond Round-Trip Time (RTT) resolution without kernel overhead.</li>
+        <li>Stamps packet transit with <code>time.perf_counter_ns()</code>.</li>
+        <li>Calculates exact Round-Trip Time (RTT) and inter-arrival dispersion.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
       <h3>🌊 Synthetic Impairment Injector</h3>
       <ul>
-        <li>Injects controlled deterministic transit delays via asynchronous timers.</li>
-        <li>Emulates real-world Wi-Fi / 5G packet dispersion via Gaussian jitter offsets.</li>
-        <li>Stochastic drop simulation ($U \sim \text{Uniform}[0, 100)$) for loss testing.</li>
+        <li>Injects deterministic base delay (0–200 ms) via asynchronous timers.</li>
+        <li>Emulates real-world network turbulence with Gaussian jitter ($\pm 100$ ms).</li>
+        <li>Stochastic drop simulation ($0–30\%$) for packet loss resilience.</li>
       </ul>
     </td>
   </tr>
@@ -75,25 +61,25 @@
     <td width="50%" valign="top">
       <h3>🛡️ Adaptive Circular Playout Buffer</h3>
       <ul>
-        <li>Continuous Exponential Moving Average (EMA) of network latency standard deviation ($\sigma$).</li>
-        <li>Dynamic playout presentation deadline: $D_{\text{target}} = \text{RTT}_{\text{avg}} + 3\sigma$.</li>
-        <li>$O(1)$ ring index arithmetic with controlled late-drop boundary protection.</li>
+        <li>Computes dynamic playout depth: $D_{\text{target}} = \text{RTT}_{\text{avg}} + 3\sigma$.</li>
+        <li>Smooths application playout variation from <b>18.4 ms down to 3.2 ms</b>.</li>
+        <li>$O(1)$ ring buffer indexing with automatic late-packet discards.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
       <h3>📈 60 FPS Real-Time Canvas Charts</h3>
       <ul>
-        <li>Next.js 16 (React 19) dashboard deployed on Vercel Serverless Edge.</li>
-        <li>Hardware-accelerated HTML5 2D Canvas with Catmull-Rom cubic spline interpolation.</li>
-        <li>Interactive microsecond hover crosshairs and paired A/B comparison metrics.</li>
+        <li>Next.js 16 (React 19) dashboard deployed on Vercel Edge.</li>
+        <li>Hardware-accelerated HTML5 2D Canvas with Catmull-Rom cubic splines.</li>
+        <li>Interactive microsecond hover tooltips and paired comparative tables.</li>
       </ul>
     </td>
   </tr>
 </table>
 
-<br/>
+---
 
-## 📐 SYSTEM ARCHITECTURE
+## 📐 System Architecture
 
 ```mermaid
 graph TD
@@ -126,27 +112,27 @@ graph TD
     style TIER_4 fill:#0D1117,stroke:#F59E0B,stroke-width:2px,color:#fff
 ```
 
-<br/>
+---
 
-## 🔬 MATHEMATICAL FORMULATIONS
+## 🔬 Mathematical Foundations
 
 ### 1. RFC 3550 RTP Inter-Arrival Jitter Standard
-For consecutive packet arrivals $i-1$ and $i$, let $S_i$ be the transmission timestamp and $R_i$ be the arrival timestamp. The transit delay difference $D(i-1, i)$ is formulated as:
+For consecutive packet arrivals $i-1$ and $i$, with transmission timestamp $S_i$ and arrival timestamp $R_i$:
 
 $$D(i-1, i) = (R_i - R_{i-1}) - (S_i - S_{i-1}) = (R_i - S_i) - (R_{i-1} - S_{i-1})$$
 
-The cumulative smoothed jitter estimate $J(i)$ is tracked via Exponential Moving Average with attenuation $\alpha = \frac{1}{16} = 0.0625$:
+The smoothed inter-arrival jitter $J(i)$ is estimated using an Exponential Moving Average (EMA) with attenuation factor $\alpha = \frac{1}{16} = 0.0625$:
 
 $$J(i) = J(i-1) + \frac{|D(i-1, i)| - J(i-1)}{16}$$
 
 ---
 
 ### 2. Adaptive Playout Delay Buffer Formulation
-To absorb latency variance without inducing conversational lag, the target buffer depth $D_{\text{target}}$ is dynamically modulated:
+To absorb latency variance while minimizing conversational latency, the target playout delay $D_{\text{target}}$ is dynamically computed as:
 
 $$D_{\text{target}}(t) = \widehat{\text{RTT}}(t) + 3 \cdot \widehat{\sigma}_{\text{jitter}}(t)$$
 
-For packet $i$ arriving at time $R_i$, scheduled playout presentation time $P_i$ is enforced:
+For packet $i$ arriving at time $R_i$, scheduled playout presentation time $P_i$ is evaluated:
 
 $$P_i = S_i + D_{\text{target}}$$
 
@@ -155,9 +141,9 @@ $$\text{Decision Rule} = \begin{cases}
 \text{Discard (Late Loss)} & \text{if } R_i > P_i 
 \end{cases}$$
 
-<br/>
+---
 
-## 📊 PAIRED A/B EXPERIMENT BENCHMARK
+## 📊 Paired A/B Experiment Benchmark
 
 *Benchmark executed under identical network impairments: $200\text{ Packets}$, $\text{Base Delay} = 30\text{ ms}$, $\text{Random Jitter} = \pm 40\text{ ms}$, and $\text{Packet Loss} = 5\%$.*
 
@@ -166,23 +152,23 @@ $$\text{Decision Rule} = \begin{cases}
 | **Average Round-Trip Time (RTT)** | `48.20 ms` | `49.10 ms` | Constant transit ($\approx +0.9\text{ ms}$ overhead) |
 | **Minimum / Maximum RTT** | `28.40 / 74.80 ms` | `29.00 / 75.20 ms` | Baseline floor to peak spike |
 | **P95 Latency Threshold** | `68.20 ms` | `68.90 ms` | 95th percentile upper bound |
-| **Physical Network RTT Jitter** | `18.60 ms` | `18.40 ms` | Physical packet dispersion |
-| **Effective Playout Delivery Variance** | `18.60 ms` | `3.20 ms` | 🔥 **82.7% Jitter Reduction** |
+| **Physical Network RTT Jitter** | `18.60 ms` | `18.40 ms` | Baseline physical variance |
+| **Effective Playout Delivery Variance** | `18.60 ms` | `3.20 ms` | **82.7% Jitter Reduction** |
 | **Physical Packet Loss** | `4.50 %` | `4.50 %` | Identical dropped transit packets |
 | **Late Packets Discarded by Buffer** | `0` | `2 packets (1.0%)` | Negligible playout penalty |
-| **Target Buffer Playout Depth** | `0 ms (Disabled)` | `65.00 ms` | Dynamically adjusted to $3\sigma$ |
+| **Target Buffer Playout Depth** | `0 ms (Disabled)` | `65.00 ms` | Dynamically adapted to $3\sigma$ |
 
-<br/>
+---
 
-## 🚀 QUICKSTART PROTOCOL
+## 🚀 Quickstart Protocol
 
-### Step 1: Clone Repository
+### 1. Clone Repository
 ```bash
 git clone https://github.com/saileshl/CN-MINI-PROJ.git
 cd CN-MINI-PROJ
 ```
 
-### Step 2: Initialize Relay Backend & UDP Echo Server
+### 2. Start Backend Relay & UDP Impairment Server
 ```bash
 cd backend
 npm install
@@ -191,7 +177,7 @@ npm start
 # [✓] UDP Impairment Server listening on 0.0.0.0:5005
 ```
 
-### Step 3: Launch Local Python Measurement Agent
+### 3. Start Local Python Agent
 ```bash
 cd ../agent
 pip install -r requirements.txt
@@ -199,18 +185,18 @@ python network_agent.py
 # [?] Enter pairing code from website: <ENTER_6_CHAR_CODE>
 ```
 
-### Step 4: Access Web Dashboard
-Open **[https://cn-mini-proj.vercel.app](https://cn-mini-proj.vercel.app)** or run the frontend locally:
+### 4. Open Web Dashboard
+Launch **[https://cn-mini-proj.vercel.app](https://cn-mini-proj.vercel.app)** or run locally:
 ```bash
 cd ../frontend
 npm install
 npm run dev
-# [✓] Telemetry Dashboard live at http://localhost:3000
+# [✓] Dashboard ready at http://localhost:3000
 ```
 
-<br/>
+---
 
-## 📦 DIRECTORY BLUEPRINT
+## 📁 Directory Blueprint
 
 ```text
 CN-MINI-PROJ/
@@ -228,25 +214,12 @@ CN-MINI-PROJ/
 │   ├── src/app/setup/page.tsx   # A-to-Z Step-by-Step Agent Setup Interface
 │   ├── src/app/results/page.tsx # Paired A/B Experiment Comparison Portal
 │   └── src/components/          # 60 FPS Catmull-Rom Canvas Spline Visualizers
-└── README.md                    # Futuristic Project Showcase & Documentation
-```
-
-<br/>
-
-## 🛡️ CREDITS & ACADEMIC ATTRIBUTION
-
-```
-╔════════════════════════════════════════════════════════════════════════════════════════════╗
-║  • Author         : Sailesh K (Reg. No: 2117240020329)                                     ║
-║  • Department     : Computer Science and Engineering (CSE-F)                               ║
-║  • Institution    : Rajalakshmi Institute of Technology, Chennai - 600 124                 ║
-║  • Course         : CS23521 - Computer Networks Laboratory (Anna University)               ║
-║  • Academic Year  : 2026 – 2027                                                            ║
-╚════════════════════════════════════════════════════════════════════════════════════════════╝
+└── README.md                    # Project Showcase & Documentation
 ```
 
 <div align="center">
 
-⭐ **Star this repository if you find it helpful for real-time computer networks research!** ⭐
+<!-- Animated Bottom Wave -->
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=0,2,10,25,40&height=120&section=footer" width="100%" alt="Footer Wave" />
 
 </div>
